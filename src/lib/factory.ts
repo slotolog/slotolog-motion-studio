@@ -23,7 +23,7 @@ export function baseLayer(partial: Partial<Layer> & Pick<Layer, 'type' | 'name'>
     visible: true,
     locked: false,
     start: 0,
-    duration: project.durationInFrames,
+    duration: Math.max(1, project.durationInFrames - (partial.start ?? 0)),
     x: width / 2,
     y: height / 2,
     width: 500,

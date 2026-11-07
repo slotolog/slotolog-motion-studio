@@ -61,6 +61,8 @@ export const Preview: React.FC = () => {
     const p = playerRef.current;
     playerApi.ref = p;
     if (!p) return;
+    // the player is re-created when the aspect ratio changes: keep the playhead
+    p.seekTo(useStore.getState().frame);
     const onFrame = (e: { detail: { frame: number } }) => useStore.getState().setFrame(e.detail.frame);
     const onPlay = () => useStore.getState().setPlaying(true);
     const onPause = () => useStore.getState().setPlaying(false);

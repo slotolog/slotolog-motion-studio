@@ -19,6 +19,7 @@ const LayerContent: React.FC<{ layer: Layer; url?: string }> = ({ layer, url }) 
           src={url}
           objectFit={layer.objectFit ?? 'cover'}
           muted={layer.muted}
+          loop={!!layer.loop}
           volume={layer.volume ?? 1}
           style={{ width: '100%', height: '100%' }}
         />

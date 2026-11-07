@@ -294,7 +294,8 @@ export const useStore = create<State>((set, get) => {
             width = Math.round(Math.sqrt(area * r));
             height = Math.round(width / r);
           }
-          return { ...l, type: a.kind, assetId, width, height, name: a.name, objectFit: l.objectFit ?? (a.kind === 'video' ? 'cover' : 'contain') };
+          const loop = a.kind === 'video' && !!a.duration && a.duration * p.fps < l.duration;
+          return { ...l, type: a.kind, assetId, width, height, name: a.name, loop, objectFit: l.objectFit ?? (a.kind === 'video' ? 'cover' : 'contain') };
         }),
       );
     },
@@ -321,7 +322,8 @@ export const useStore = create<State>((set, get) => {
               y: l.y * sy,
               width: full ? to.width : Math.round(l.width * s),
               height: full ? to.height : Math.round(l.height * s),
-              text: l.text ? { ...l.text, fontSize: Math.round(l.text.fontSize * s) } : l.text,
+              text: l.text ? { ...l.text, fontSize: Math.round(l.text.fontSize * s), strokeWidth: Math.round(l.text.strokeWidth * s) } : l.text,
+              button: l.button ? { ...l.button, fontSize: Math.round(l.button.fontSize * s) } : l.button,
               keyframes: { ...l.keyframes, x: scaleKf('x', sx), y: scaleKf('y', sy) },
             };
           }),

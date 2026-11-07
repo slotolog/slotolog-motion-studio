@@ -129,6 +129,8 @@ export interface Layer {
   objectFit?: 'contain' | 'cover';
   volume?: number;
   muted?: boolean;
+  /** loop video when it is shorter than the layer */
+  loop?: boolean;
   text?: TextSettings;
   button?: ButtonSettings;
   background?: BackgroundSettings;

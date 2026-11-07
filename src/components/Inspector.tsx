@@ -404,6 +404,7 @@ export const Inspector: React.FC = () => {
       )}
       {(layer.type === 'video' || layer.type === 'audio') && (
         <Section title="Ses">
+          {layer.type === 'video' && <Toggle value={!!layer.loop} onChange={(v) => up({ loop: v })} label="Döngü (video bitince başa sar)" />}
           <Toggle value={!!layer.muted} onChange={(v) => up({ muted: v })} label="Sessiz" />
           <Row label="Ses düzeyi">
             <Slider value={layer.volume ?? 1} min={0} max={1} onChange={(v) => up({ volume: v })} />
