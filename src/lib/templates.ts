@@ -156,7 +156,7 @@ export function premiumTemplate(): Project {
   const small = grid.map(([v, x, y, sec], i) => {
     const l = multiplierLayer(p, v, { x, y, width: 430, height: 215, start: s(sec), duration: s(exitAt + 0.6 - sec) });
     l.effects = [
-      makeEffect('impact', 30, { duration: s(0.7), intensity: 0.28 }),
+      makeEffect('impact', 30, { duration: s(0.6), intensity: 0.14 }),
       makeEffect('flash', 30, { duration: s(0.7), intensity: 0.5 }),
       makeEffect(i % 2 === 0 ? 'dance' : 'sway', 30, { start: s(0.7), duration: end, speed: 0.9, intensity: 0.45 }),
       makeEffect('glow', 30, { start: s(0.7), duration: end, speed: 0.8, intensity: 0.6 }),
@@ -171,7 +171,7 @@ export function premiumTemplate(): Project {
   // Hero: uploaded 1000X image, stays until the end
   const hero = brandLayer(p, 'mult1000', 580, { name: '1000X çarpan (görsel)', y: 1180, ...at(2.4) });
   hero.effects = [
-    makeEffect('impact', 30, { duration: s(0.9), intensity: 0.3 }),
+    makeEffect('impact', 30, { duration: s(0.8), intensity: 0.15 }),
     makeEffect('flash', 30, { duration: s(1), color: '#FFF1C2', intensity: 0.7 }),
     makeEffect('spin', 30, { start: s(0.9), duration: s(1.33), speed: 1, intensity: 1 }),
     makeEffect('dance', 30, { start: s(2.25), duration: end, speed: 0.7, intensity: 0.4 }),
@@ -193,7 +193,7 @@ export function premiumTemplate(): Project {
     { y: 600, ...at(6.1) },
   );
   amount.effects = [
-    makeEffect('impact', 30, { duration: s(0.8), intensity: 0.35 }),
+    makeEffect('impact', 30, { duration: s(0.7), intensity: 0.15 }),
     makeEffect('flash', 30, { duration: s(0.9), color: '#FFF1C2', intensity: 0.6 }),
     makeEffect('glow', 30, { start: s(0.8), duration: end, color: '#FFB300', speed: 0.6, intensity: 0.7 }),
     makeEffect('pulse', 30, { start: s(0.8), duration: end, speed: 0.6, intensity: 0.3 }),
@@ -205,7 +205,7 @@ export function premiumTemplate(): Project {
     { text: '+ 450FS', fontSize: 128, style: 'gold', strokeColor: '#3D1500', strokeWidth: 11, extrude: true, italic: true },
     { y: 790, ...at(6.8) },
   );
-  fs.effects = [makeEffect('impact', 30, { duration: s(0.7), intensity: 0.3 }), makeEffect('sway', 30, { start: s(0.7), duration: end, speed: 0.6, intensity: 0.3 })];
+  fs.effects = [makeEffect('impact', 30, { duration: s(0.6), intensity: 0.15 }), makeEffect('sway', 30, { start: s(0.7), duration: end, speed: 0.6, intensity: 0.3 })];
 
   const btn = buttonLayer(p, 'BONUSU AL', { y: 1600, width: 700, height: 170, ...at(7.6) });
   btn.button = { ...btn.button!, fontSize: 82, colorTop: '#FFC15A', colorBottom: '#FF7A00' };
