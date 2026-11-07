@@ -1,0 +1,215 @@
+import { rand } from '../lib/anim';
+import { hexToRgba } from '../lib/color';
+import { FONT_FAMILY } from '../lib/fonts';
+import type { BackgroundSettings, ParticleSettings } from '../types';
+
+type Ctx = CanvasRenderingContext2D;
+
+function bokeh(ctx: Ctx, w: number, h: number, t: number, color: string, count = 26) {
+  for (let i = 0; i < count; i++) {
+    const r = 12 + rand(i * 3.1) * 60;
+    const x = rand(i * 7.7) * w + Math.sin(t * 0.4 + i) * 30;
+    const travel = h + r * 2;
+    const y = h + r - ((rand(i * 5.3) * travel + t * (20 + rand(i) * 50)) % travel);
+    const a = 0.06 + rand(i * 9.1) * 0.2;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexToRgba(color, a));
+    g.addColorStop(1, hexToRgba(color, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function rays(ctx: Ctx, cx: number, cy: number, len: number, count: number, angle: number, color: string, alpha: number) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  const step = (Math.PI * 2) / count;
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, len);
+  g.addColorStop(0, hexToRgba(color, alpha));
+  g.addColorStop(0.6, hexToRgba(color, alpha * 0.5));
+  g.addColorStop(1, hexToRgba(color, 0));
+  ctx.fillStyle = g;
+  for (let i = 0; i < count; i++) {
+    const a0 = i * step;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, len, a0, a0 + step * 0.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+export function drawBackground(ctx: Ctx, s: BackgroundSettings, t: number, w: number, h: number) {
+  ctx.clearRect(0, 0, w, h);
+  const cx = w / 2;
+  const cy = h * 0.45;
+  const big = Math.max(w, h);
+  const sp = s.speed || 1;
+
+  if (s.style === 'rays') {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, big * 0.75);
+    g.addColorStop(0, s.colorA);
+    g.addColorStop(1, s.colorB);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    rays(ctx, cx, cy, big, Math.max(4, s.rays), t * 0.3 * sp, s.rayColor, 0.32);
+    rays(ctx, cx, cy, big * 0.8, Math.max(4, s.rays), -t * 0.18 * sp, s.rayColor, 0.12);
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, big * 0.32);
+    const pulse = 0.45 + Math.sin(t * 2 * sp) * 0.1;
+    core.addColorStop(0, `rgba(255,255,255,${pulse})`);
+    core.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = core;
+    ctx.fillRect(0, 0, w, h);
+  } else if (s.style === 'gradient') {
+    const a = t * 0.4 * sp;
+    const dx = Math.cos(a) * w;
+    const dy = Math.sin(a) * h;
+    const g = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
+    g.addColorStop(0, s.colorA);
+    g.addColorStop(1, s.colorB);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 4; i++) {
+      const bx = cx + Math.sin(t * 0.5 * sp + i * 1.7) * w * 0.4;
+      const by = cy + Math.cos(t * 0.4 * sp + i * 2.3) * h * 0.35;
+      const r = big * (0.25 + 0.1 * i);
+      const bg = ctx.createRadialGradient(bx, by, 0, bx, by, r);
+      bg.addColorStop(0, hexToRgba(s.rayColor, 0.35));
+      bg.addColorStop(1, hexToRgba(s.rayColor, 0));
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+    }
+  } else {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, big * 0.8);
+    g.addColorStop(0, hexToRgba(s.colorB, 1));
+    g.addColorStop(1, '#0b0b0b');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    rays(ctx, cx, cy, big, Math.max(4, s.rays), t * 0.2 * sp, s.colorA, 0.08);
+    for (let i = 0; i < 3; i++) {
+      const bx = cx + Math.sin(t * 0.6 * sp + i * 2.1) * w * 0.35;
+      const by = cy + Math.cos(t * 0.5 * sp + i * 1.3) * h * 0.3;
+      const r = big * 0.3;
+      const bg = ctx.createRadialGradient(bx, by, 0, bx, by, r);
+      bg.addColorStop(0, hexToRgba(s.colorA, 0.32));
+      bg.addColorStop(1, hexToRgba(s.colorA, 0));
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+    }
+  }
+
+  if (s.bokeh) bokeh(ctx, w, h, t * sp, s.style === 'dark' ? s.colorA : '#FFFFFF');
+
+  const v = ctx.createRadialGradient(cx, cy, big * 0.35, cx, cy, big * 0.85);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, w, h);
+}
+
+export function drawCoin(ctx: Ctx, x: number, y: number, r: number, spin: number, tilt: number) {
+  const sx = Math.max(0.08, Math.abs(Math.cos(spin)));
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(tilt);
+  ctx.scale(sx, 1);
+  // edge (thickness)
+  ctx.fillStyle = '#9A5800';
+  ctx.beginPath();
+  ctx.arc(r * 0.08 * Math.sign(Math.cos(spin) || 1), 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+  g.addColorStop(0, '#FFF8C4');
+  g.addColorStop(0.35, '#FFD84A');
+  g.addColorStop(0.75, '#F2A007');
+  g.addColorStop(1, '#B86A00');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = r * 0.1;
+  ctx.strokeStyle = '#C47A00';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#B56A00';
+  ctx.font = `900 ${Math.round(r * 1.05)}px ${FONT_FAMILY}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('₺', 0, r * 0.05);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.3, -r * 0.4, r * 0.35, r * 0.15, -0.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function star(ctx: Ctx, x: number, y: number, r: number, alpha: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#FFFBE0';
+  ctx.shadowColor = '#FFD54A';
+  ctx.shadowBlur = r * 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI) / 4;
+    const rr = i % 2 === 0 ? r : r * 0.22;
+    ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+const CONFETTI = ['#FF8E16', '#FFD23F', '#FFFFFF', '#FFB347', '#E85D04'];
+
+export function drawParticles(ctx: Ctx, s: ParticleSettings, t: number, w: number, h: number) {
+  ctx.clearRect(0, 0, w, h);
+  const sp = s.speed || 1;
+  const seed = s.seed || 1;
+  const n = Math.max(1, Math.min(300, Math.round(s.count)));
+  for (let i = 0; i < n; i++) {
+    const R = (k: number) => rand(i * 13.37 + k * 7.1 + seed * 31.7);
+    if (s.kind === 'coins') {
+      const r = s.size * (0.55 + R(1) * 0.8);
+      const fall = (260 + R(2) * 520) * sp;
+      const travel = h + r * 4;
+      const y = ((R(3) * travel + t * fall) % travel) - r * 2;
+      const x = R(4) * w + Math.sin(t * 1.4 + i) * 24;
+      drawCoin(ctx, x, y, r, t * (2 + R(5) * 4) * sp + R(6) * 6, (R(7) - 0.5) * 0.8);
+    } else if (s.kind === 'burst') {
+      const period = 2.6 / sp;
+      const lt = (t % period) * sp;
+      const ang = R(1) * Math.PI * 2;
+      const v = 700 + R(2) * 1100;
+      const g = 1700;
+      const x = w / 2 + Math.cos(ang) * v * lt;
+      const y = h * 0.45 + Math.sin(ang) * v * lt + 0.5 * g * lt * lt;
+      const r = s.size * (0.5 + R(3) * 0.8) * Math.min(1, 0.3 + lt * 3);
+      drawCoin(ctx, x, y, r, lt * (5 + R(4) * 6), R(5) - 0.5);
+    } else if (s.kind === 'sparkles') {
+      const x = R(1) * w;
+      const y = R(2) * h;
+      const a = Math.max(0, Math.sin(t * (2 + R(3) * 3) * sp + R(4) * 20));
+      star(ctx, x, y, s.size * (0.3 + R(5) * 0.7), a);
+    } else {
+      const fall = (200 + R(2) * 400) * sp;
+      const travel = h + 80;
+      const y = ((R(3) * travel + t * fall) % travel) - 40;
+      const x = R(4) * w + Math.sin(t * 2 + i) * 40;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(t * (2 + R(5) * 4) + i);
+      ctx.scale(1, Math.abs(Math.cos(t * 4 * sp + i)));
+      ctx.fillStyle = CONFETTI[i % CONFETTI.length];
+      const sz = s.size * 0.4;
+      ctx.fillRect(-sz / 2, -sz / 4, sz, sz / 2);
+      ctx.restore();
+    }
+  }
+}

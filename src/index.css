@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #e5e5e5;
+  background: #121212;
+  overflow: hidden;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #FF8E16; }
+input[type='number']::-webkit-inner-spin-button { opacity: 0.4; }
