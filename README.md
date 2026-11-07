@@ -7,7 +7,7 @@ CapCut / After Effects gerekmez; MP4 doğrudan tarayıcıda (Chrome) oluşturulu
 
 ---
 
-## 1. Kurulum ve çalıştırma (MacBook)
+## 1. Kullanım / yerel çalıştırma (isteğe bağlı)
 
 1. **Node.js** kur (bir kerelik): https://nodejs.org → “LTS” sürümünü indir ve kur.
 2. Proje klasöründe **`Baslat.command`** dosyasına çift tıkla.
@@ -23,10 +23,10 @@ CapCut / After Effects gerekmez; MP4 doğrudan tarayıcıda (Chrome) oluşturulu
 
 > **Tarayıcı:** Google Chrome önerilir (MP4 oluşturma WebCodecs kullanır). Safari/Firefox’ta önizleme çalışır, MP4 dışa aktarma desteklenmeyebilir; uygulama bunu dışa aktarma penceresinde söyler.
 
-### İnternette yayınlama (ücretsiz, isteğe bağlı)
-Repo GitHub’a yüklendiğinde `.github/workflows/deploy.yml` uygulamayı **GitHub Pages**’e otomatik yayınlar (ücretsiz):
-Repo → Settings → Pages → Source: **GitHub Actions**. Adres: `https://<kullanıcı>.github.io/slotolog-motion-studio/`.
-Projeler ve medyalar yine sadece kendi tarayıcında saklanır, hiçbir sunucuya yüklenmez.
+### Canlı uygulama (kurulum gerekmez)
+**https://slotolog.github.io/slotolog-motion-studio/** — Chrome ile aç ve kullan.
+
+`main` dalına her gönderimde `.github/workflows/deploy.yml` uygulamayı derler ve `gh-pages` dalına yayınlar; GitHub Pages birkaç dakika içinde canlı adresi günceller (ücretsiz). Projeler ve medyalar yalnızca kendi tarayıcında saklanır, hiçbir sunucuya yüklenmez.
 
 ---
 
