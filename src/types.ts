@@ -40,7 +40,9 @@ export type EffectType =
   | 'flash'
   | 'shake'
   | 'impact'
-  | 'beat';
+  | 'beat'
+  | 'float'
+  | 'shine';
 
 export type Direction = 'left' | 'right' | 'top' | 'bottom';
 
@@ -59,9 +61,11 @@ export interface Effect {
   color?: string;
   /** beats per minute for the "beat" effect */
   bpm?: number;
+  /** seconds added to the time of looping effects, so copies do not move in sync */
+  phase?: number;
 }
 
-export type BackgroundStyle = 'rays' | 'gradient' | 'dark' | 'luxury';
+export type BackgroundStyle = 'rays' | 'gradient' | 'dark' | 'luxury' | 'party';
 
 export interface BackgroundSettings {
   style: BackgroundStyle;
@@ -73,7 +77,7 @@ export interface BackgroundSettings {
   bokeh: boolean;
 }
 
-export type ParticleKind = 'coins' | 'burst' | 'sparkles' | 'confetti';
+export type ParticleKind = 'coins' | 'burst' | 'sparkles' | 'confetti' | 'fruits' | 'fruitFrame';
 
 export interface ParticleSettings {
   kind: ParticleKind;

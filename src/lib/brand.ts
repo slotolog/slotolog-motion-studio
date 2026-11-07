@@ -12,6 +12,15 @@ export const BRAND_ASSETS = {
     height: 308,
     src: 'brand/slotolog-logo-white.png',
   },
+  logoBadge: {
+    id: 'brand-logo-badge',
+    name: 'Slotolog logo rozeti (her zeminde okunur)',
+    kind: 'image',
+    mime: 'image/png',
+    width: 1260,
+    height: 440,
+    src: 'brand/slotolog-logo-badge.png',
+  },
   logo: {
     id: 'brand-logo',
     name: 'Slotolog logo (orijinal – açık zemin)',

@@ -124,7 +124,12 @@ const EffectsEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
                 />
               </Row>
             )}
-            {(e.type === 'glow' || e.type === 'flash') && (
+            {['bounce', 'dance', 'sway', 'spin', 'pulse', 'glow', 'beat', 'float', 'shine', 'shake'].includes(e.type) && (
+              <Row label="Faz (sn)">
+                <NumInput value={e.phase ?? 0} step={0.1} digits={2} onChange={(v) => st.updateEffect(layer.id, e.id, { phase: v })} />
+              </Row>
+            )}
+            {(e.type === 'glow' || e.type === 'flash' || e.type === 'shine') && (
               <Row label="Renk">
                 <ColorInput value={e.color ?? '#FFD54A'} onChange={(v) => st.updateEffect(layer.id, e.id, { color: v })} />
               </Row>
@@ -331,6 +336,7 @@ export const Inspector: React.FC = () => {
                 { value: 'gradient', label: 'Akan gradyan' },
                 { value: 'dark', label: 'Koyu casino' },
                 { value: 'luxury', label: 'Lüks altın-siyah' },
+                { value: 'party', label: 'Parti (turuncu-altın-pembe)' },
               ]}
             />
           </Row>
@@ -371,10 +377,12 @@ export const Inspector: React.FC = () => {
                 { value: 'burst', label: 'Altın patlaması' },
                 { value: 'sparkles', label: 'Parıltılar' },
                 { value: 'confetti', label: 'Konfeti' },
+                { value: 'fruits', label: 'Uçuşan meyveler' },
+                { value: 'fruitFrame', label: 'Meyve çerçevesi (üst/alt)' },
               ]}
             />
           </Row>
-          <Row label="Adet">
+          <Row label={layer.particles.kind === 'fruitFrame' ? 'Sıra başına' : 'Adet'}>
             <NumInput value={layer.particles.count} min={1} max={300} onChange={(v) => up({ particles: { ...layer.particles!, count: Math.round(v) } })} />
           </Row>
           <Row label="Boyut">

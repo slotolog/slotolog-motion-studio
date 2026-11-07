@@ -226,7 +226,102 @@ export function premiumTemplate(): Project {
   return p;
 }
 
+/** E. Slotolog 1000X Bomb Party — 18 sn, 2 + 3 bomba, parti arka planı, meyveler */
+export function bombPartyTemplate(): Project {
+  const p = emptyProject('9:16', 'Slotolog 1000X Bomb Party');
+  p.durationInFrames = s(18);
+  const end = p.durationInFrames;
+  const from = (sec: number) => ({ start: s(sec), duration: end - s(sec) });
+
+  const bg = backgroundLayer(p, bgPreset('Slotolog Parti'), 'Parti arka planı');
+  const frame = particlesLayer(p, { kind: 'fruitFrame', count: 7, speed: 1, size: 82, seed: 3 }, 'Meyve çerçevesi (üst/alt)');
+  frame.particles!.seed = 3;
+  const fruits = particlesLayer(p, { kind: 'fruits', count: 9, speed: 0.75, size: 44, seed: 8 }, 'Uçuşan meyveler', { opacity: 0.9 });
+  fruits.particles!.seed = 8;
+  const coins = particlesLayer(p, { kind: 'coins', count: 16, speed: 0.7, size: 24, seed: 12 }, 'Küçük altınlar');
+  coins.particles!.seed = 12;
+
+  const lg = brandLayer(p, 'logoBadge', 560, { name: 'Slotolog logo', y: 178 });
+  lg.effects = [
+    makeEffect('flyIn', 30, { direction: 'top', duration: s(0.9), intensity: 0.5 }),
+    makeEffect('float', 30, { start: s(0.9), duration: end, speed: 0.6, intensity: 0.35 }),
+    makeEffect('shine', 30, { start: s(0.9), duration: end, speed: 0.35, intensity: 0.7, phase: 1.5 }),
+  ];
+
+  // 2 bombs on top, 3 below — each one an independent, editable image layer
+  const bombs: [number, number, number, number][] = [
+    // x, y, width, entry second
+    [315, 505, 390, 0.3],
+    [765, 505, 390, 0.5],
+    [185, 895, 330, 0.75],
+    [540, 895, 330, 0.95],
+    [895, 895, 330, 1.15],
+  ];
+  const bombLayers = bombs.map(([x, y, w, sec], i) => {
+    const l = brandLayer(p, 'mult1000', w, { name: `1000X bomba ${i + 1}`, x, y, ...from(sec) });
+    const ph = [0, 1.7, 0.9, 2.6, 0.4][i];
+    l.effects = [
+      makeEffect('impact', 30, { duration: s(0.6), intensity: 0.15 }),
+      makeEffect('flash', 30, { duration: s(0.7), intensity: 0.6, color: '#FFF6D0' }),
+      makeEffect('sway', 30, { start: s(0.6), duration: end, speed: [0.55, 0.65, 0.6, 0.7, 0.5][i], intensity: 0.32, phase: ph }),
+      makeEffect('float', 30, { start: s(0.6), duration: end, speed: [0.9, 1.05, 0.95, 0.85, 1.1][i], intensity: 0.9, phase: ph * 1.3 }),
+      makeEffect('pulse', 30, { start: s(0.6), duration: end, speed: [0.42, 0.36, 0.48, 0.4, 0.45][i], intensity: 0.35, phase: ph * 0.7 }),
+      makeEffect('shine', 30, { start: s(0.6), duration: end, speed: [0.45, 0.42, 0.5, 0.47, 0.4][i], intensity: 1, phase: i * 0.55 }),
+      makeEffect('glow', 30, { start: s(0.6), duration: end, color: '#FFD23F', speed: 0.5, intensity: 0.45, phase: ph }),
+      // flash waves keep the scene alive
+      makeEffect('flash', 30, { start: s(7 - sec + i * 0.15), duration: s(0.7), intensity: 0.55, color: '#FFFFFF' }),
+      makeEffect('flash', 30, { start: s(12.5 - sec + i * 0.15), duration: s(0.7), intensity: 0.55, color: '#FFFFFF' }),
+    ];
+    return l;
+  });
+
+  const burst1 = particlesLayer(p, { kind: 'burst', count: 30, speed: 1, size: 34, seed: 21 }, 'Altın patlaması 1', { start: s(1.2), duration: s(2.6) });
+  const burst2 = particlesLayer(p, { kind: 'burst', count: 24, speed: 1, size: 30, seed: 22 }, 'Altın patlaması 2', { start: s(9.5), duration: s(2.6) });
+  const burst3 = particlesLayer(p, { kind: 'burst', count: 24, speed: 1, size: 30, seed: 23 }, 'Altın patlaması 3', { start: s(15), duration: s(2.6) });
+  [burst1, burst2, burst3].forEach((b, i) => (b.particles!.seed = 21 + i));
+  const sparkles = particlesLayer(p, { kind: 'sparkles', count: 45, speed: 0.9, size: 32, seed: 31 }, 'Parıltılar');
+  sparkles.particles!.seed = 31;
+
+  const amount = textLayer(
+    p,
+    { text: '100.000TL', fontSize: 150, style: 'gold', strokeColor: '#5A1500', strokeWidth: 13, extrude: true, italic: true },
+    { name: 'Bonus miktarı', y: 1172, ...from(1.6) },
+  );
+  amount.effects = [
+    makeEffect('impact', 30, { duration: s(0.6), intensity: 0.15 }),
+    makeEffect('flash', 30, { duration: s(0.8), color: '#FFF6D0', intensity: 0.7 }),
+    makeEffect('pulse', 30, { start: s(0.6), duration: end, speed: 0.55, intensity: 0.25 }),
+    makeEffect('glow', 30, { start: s(0.6), duration: end, color: '#FFE27A', speed: 0.55, intensity: 0.45 }),
+    makeEffect('flash', 30, { start: s(9.5 - 1.6), duration: s(0.8), color: '#FFFFFF', intensity: 0.6 }),
+    makeEffect('flash', 30, { start: s(15 - 1.6), duration: s(0.8), color: '#FFFFFF', intensity: 0.6 }),
+  ];
+  const fs = textLayer(
+    p,
+    { text: '+ 450FS', fontSize: 112, style: 'gold', strokeColor: '#5A1500', strokeWidth: 11, extrude: true, italic: true },
+    { name: 'Free spin', y: 1322, ...from(2.1) },
+  );
+  fs.effects = [makeEffect('impact', 30, { duration: s(0.6), intensity: 0.15 }), makeEffect('sway', 30, { start: s(0.6), duration: end, speed: 0.5, intensity: 0.2 })];
+  const players = textLayer(
+    p,
+    { text: 'TÜM YENİ OYUNCULARA', fontSize: 72, style: 'white', strokeColor: '#7A1E00', strokeWidth: 9, extrude: true },
+    { name: 'Hedef kitle', y: 1450, ...from(2.6) },
+  );
+  players.effects = [makeEffect('flyIn', 30, { direction: 'left', duration: s(0.8), intensity: 0.5 })];
+
+  const btn = buttonLayer(p, 'BONUSU AL', { y: 1645, width: 760, height: 180, ...from(3.0) });
+  btn.button = { ...btn.button!, fontSize: 88, colorTop: '#FFD45A', colorBottom: '#FF7A00' };
+  btn.effects = [
+    makeEffect('flyIn', 30, { duration: s(0.8), intensity: 0.45 }),
+    makeEffect('pulse', 30, { start: s(0.8), duration: end, speed: 1.2, intensity: 0.55 }),
+    makeEffect('glow', 30, { start: s(0.8), duration: end, color: '#FFE27A', speed: 1.2, intensity: 0.6 }),
+  ];
+
+  p.layers = [bg, frame, fruits, coins, lg, ...bombLayers, burst1, burst2, burst3, sparkles, amount, fs, players, btn];
+  return p;
+}
+
 export const TEMPLATES = [
+  { id: 'bombparty', name: '★ Slotolog 1000X Bomb Party', desc: '5 adet 1000X bomba, parti arka planı, meyveler, 18 sn', make: bombPartyTemplate },
   { id: 'premium', name: '★ Slotolog Premium Bonus', desc: 'Lüks altın-siyah, logo, 100X–1000X, bonus, 15 sn', make: premiumTemplate },
   { id: 'multiplier', name: 'A · Çarpan animasyonu', desc: '100X–1000X çarpanlar, 15 sn', make: multiplierTemplate },
   { id: 'bonus', name: 'B · Bonus tanıtımı', desc: 'Logo, 100.000TL + 450FS, buton', make: bonusTemplate },

@@ -83,6 +83,44 @@ export function drawBackground(ctx: Ctx, s: BackgroundSettings, t: number, w: nu
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
     }
+  } else if (s.style === 'party') {
+    const py = h * 0.42;
+    const g = ctx.createRadialGradient(cx, py, 0, cx, py, big * 0.78);
+    g.addColorStop(0, '#FFF3B0');
+    g.addColorStop(0.18, s.rayColor);
+    g.addColorStop(0.5, s.colorA);
+    g.addColorStop(1, s.colorB);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    // drifting warm-pink washes in the corners
+    for (let i = 0; i < 3; i++) {
+      const bx = (i % 2 === 0 ? 0.1 : 0.9) * w + Math.sin(t * 0.5 * sp + i * 2) * w * 0.12;
+      const by = (i === 2 ? 0.95 : 0.15) * h + Math.cos(t * 0.4 * sp + i) * h * 0.06;
+      const bg = ctx.createRadialGradient(bx, by, 0, bx, by, big * 0.4);
+      bg.addColorStop(0, hexToRgba(s.colorB, 0.55));
+      bg.addColorStop(1, hexToRgba(s.colorB, 0));
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+    }
+    rays(ctx, cx, py, big, Math.max(4, s.rays), t * 0.22 * sp, '#FFFFFF', 0.2);
+    rays(ctx, cx, py, big * 0.75, Math.max(4, s.rays), -t * 0.12 * sp, s.rayColor, 0.14);
+    // lens flares
+    for (let i = 0; i < 4; i++) {
+      const fx = w * (0.15 + 0.7 * rand(i * 3.3)) + Math.sin(t * 0.7 * sp + i * 1.9) * w * 0.15;
+      const fy = h * (0.2 + 0.6 * rand(i * 5.1)) + Math.cos(t * 0.6 * sp + i * 2.7) * h * 0.08;
+      const fr = big * (0.05 + 0.05 * rand(i * 8.8)) * (0.85 + 0.15 * Math.sin(t * 3 + i));
+      const fg = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
+      fg.addColorStop(0, 'rgba(255,255,255,0.75)');
+      fg.addColorStop(0.3, 'rgba(255,240,200,0.3)');
+      fg.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = fg;
+      ctx.fillRect(fx - fr, fy - fr, fr * 2, fr * 2);
+    }
+    const core = ctx.createRadialGradient(cx, py, 0, cx, py, big * 0.28);
+    core.addColorStop(0, `rgba(255,255,255,${0.42 + Math.sin(t * 2 * sp) * 0.08})`);
+    core.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = core;
+    ctx.fillRect(0, 0, w, h);
   } else if (s.style === 'luxury') {
     const ly = h * 0.58;
     const g = ctx.createRadialGradient(cx, ly, 0, cx, ly, big * 0.85);
@@ -146,7 +184,7 @@ export function drawBackground(ctx: Ctx, s: BackgroundSettings, t: number, w: nu
 
   const v = ctx.createRadialGradient(cx, cy, big * 0.35, cx, cy, big * 0.85);
   v.addColorStop(0, 'rgba(0,0,0,0)');
-  v.addColorStop(1, 'rgba(0,0,0,0.35)');
+  v.addColorStop(1, s.style === 'party' ? 'rgba(90,0,40,0.28)' : 'rgba(0,0,0,0.35)');
   ctx.fillStyle = v;
   ctx.fillRect(0, 0, w, h);
 }
@@ -237,6 +275,29 @@ export function drawParticles(ctx: Ctx, s: ParticleSettings, t: number, w: numbe
       const y = R(2) * h;
       const a = Math.max(0, Math.sin(t * (2 + R(3) * 3) * sp + R(4) * 20));
       star(ctx, x, y, s.size * (0.3 + R(5) * 0.7), a);
+    } else if (s.kind === 'fruits') {
+      const rise = (90 + R(2) * 140) * sp;
+      const r = s.size * (0.55 + R(1) * 0.6);
+      const travel = h + r * 4;
+      const y = h + r * 2 - ((R(3) * travel + t * rise) % travel);
+      const x = R(4) * w + Math.sin(t * 0.9 * sp + i * 1.7) * 40;
+      ctx.globalAlpha = 0.95;
+      drawFruit(ctx, FRUITS[Math.floor(R(5) * FRUITS.length)], x, y, r, Math.sin(t * 1.2 * sp + i) * 0.5);
+      ctx.globalAlpha = 1;
+    } else if (s.kind === 'fruitFrame') {
+      // decorative rows along the top and bottom edges (count = fruits per row)
+      const per = Math.max(3, Math.min(14, Math.round(s.count)));
+      for (const row of [0, 1]) {
+        for (let j = 0; j < per; j++) {
+          const RR = (k: number) => rand(j * 7.3 + row * 91 + k * 3.7 + seed * 13.1);
+          const r = s.size * (0.85 + RR(1) * 0.35);
+          const x = ((j + 0.5) / per) * w + (RR(2) - 0.5) * (w / per) * 0.35;
+          const base = row === 0 ? r * 0.35 : h - r * 0.35;
+          const y = base + Math.sin(t * 1.6 * sp + j * 1.3 + row) * r * 0.08;
+          drawFruit(ctx, FRUITS[(j * 3 + row * 2 + Math.floor(seed)) % FRUITS.length], x, y, r, Math.sin(t * 1.1 * sp + j) * 0.12 + (RR(3) - 0.5) * 0.5);
+        }
+      }
+      break;
     } else {
       const fall = (200 + R(2) * 400) * sp;
       const travel = h + 80;
@@ -252,4 +313,158 @@ export function drawParticles(ctx: Ctx, s: ParticleSettings, t: number, w: numbe
       ctx.restore();
     }
   }
+}
+
+export const FRUITS = ['cherry', 'lemon', 'watermelon', 'grapes', 'orange', 'plum', 'seven'] as const;
+export type Fruit = (typeof FRUITS)[number];
+
+function ball(ctx: Ctx, x: number, y: number, r: number, light: string, dark: string, outline: string) {
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+  g.addColorStop(0, light);
+  g.addColorStop(1, dark);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = Math.max(1, r * 0.1);
+  ctx.strokeStyle = outline;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.ellipse(x - r * 0.35, y - r * 0.42, r * 0.28, r * 0.15, -0.6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function leaf(ctx: Ctx, x: number, y: number, r: number, rot: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.fillStyle = '#43A047';
+  ctx.strokeStyle = '#1B5E20';
+  ctx.lineWidth = Math.max(1, r * 0.06);
+  ctx.beginPath();
+  ctx.ellipse(r * 0.35, 0, r * 0.38, r * 0.17, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Cartoon slot-machine fruit centred on (x,y), roughly r in radius. */
+export function drawFruit(ctx: Ctx, kind: Fruit, x: number, y: number, r: number, rot: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.lineJoin = 'round';
+  switch (kind) {
+    case 'cherry': {
+      ctx.strokeStyle = '#2E7D32';
+      ctx.lineWidth = r * 0.09;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.45, r * 0.05);
+      ctx.quadraticCurveTo(-r * 0.2, -r * 0.6, r * 0.15, -r * 0.85);
+      ctx.moveTo(r * 0.4, r * 0.15);
+      ctx.quadraticCurveTo(r * 0.3, -r * 0.4, r * 0.15, -r * 0.85);
+      ctx.stroke();
+      leaf(ctx, r * 0.15, -r * 0.85, r, -0.4);
+      ball(ctx, -r * 0.42, r * 0.38, r * 0.45, '#FF8A80', '#B71C1C', '#5D0000');
+      ball(ctx, r * 0.4, r * 0.48, r * 0.45, '#FF8A80', '#B71C1C', '#5D0000');
+      break;
+    }
+    case 'lemon': {
+      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+      g.addColorStop(0, '#FFFDE7');
+      g.addColorStop(0.5, '#FFEB3B');
+      g.addColorStop(1, '#F9A825');
+      ctx.fillStyle = g;
+      ctx.strokeStyle = '#8D6E00';
+      ctx.lineWidth = r * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(-r, 0);
+      ctx.bezierCurveTo(-r * 0.9, -r * 0.85, r * 0.9, -r * 0.85, r, 0);
+      ctx.bezierCurveTo(r * 0.9, r * 0.85, -r * 0.9, r * 0.85, -r, 0);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.3, -r * 0.3, r * 0.3, r * 0.12, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'watermelon': {
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.3, r, 0, Math.PI);
+      ctx.closePath();
+      ctx.fillStyle = '#2E7D32';
+      ctx.fill();
+      ctx.lineWidth = r * 0.08;
+      ctx.strokeStyle = '#1B5E20';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.3, r * 0.86, 0, Math.PI);
+      ctx.closePath();
+      ctx.fillStyle = '#F1F8E9';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.3, r * 0.76, 0, Math.PI);
+      ctx.closePath();
+      const g = ctx.createRadialGradient(0, -r * 0.3, 0, 0, -r * 0.3, r * 0.76);
+      g.addColorStop(0, '#FF8A80');
+      g.addColorStop(1, '#E53935');
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.fillStyle = '#212121';
+      for (let i = 0; i < 5; i++) {
+        const a = 0.35 + i * 0.6;
+        ctx.beginPath();
+        ctx.ellipse(Math.cos(a) * r * 0.45, -r * 0.3 + Math.sin(a) * r * 0.42, r * 0.05, r * 0.09, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'grapes': {
+      const pts = [[-0.45, -0.35], [0, -0.42], [0.45, -0.35], [-0.25, 0.05], [0.25, 0.05], [0, 0.45], [-0.5, 0.15], [0.5, 0.15]];
+      leaf(ctx, 0, -r * 0.8, r, -0.9);
+      for (const [px, py] of pts) ball(ctx, px * r, py * r, r * 0.3, '#E1BEE7', '#6A1B9A', '#2A0640');
+      break;
+    }
+    case 'orange': {
+      ball(ctx, 0, r * 0.05, r * 0.9, '#FFE0B2', '#EF6C00', '#7A3300');
+      ctx.fillStyle = 'rgba(122,51,0,0.25)';
+      for (let i = 0; i < 9; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.cos(i * 2.4) * r * 0.5, Math.sin(i * 2.4) * r * 0.45 + r * 0.1, r * 0.035, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      leaf(ctx, r * 0.05, -r * 0.8, r, -0.5);
+      break;
+    }
+    case 'plum': {
+      ball(ctx, 0, r * 0.05, r * 0.85, '#B39DDB', '#4527A0', '#1A0A4A');
+      ctx.strokeStyle = '#5D4037';
+      ctx.lineWidth = r * 0.08;
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.75);
+      ctx.lineTo(r * 0.1, -r * 1.0);
+      ctx.stroke();
+      break;
+    }
+    case 'seven': {
+      ctx.font = `900 italic ${Math.round(r * 2.1)}px ${FONT_FAMILY}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = r * 0.32;
+      ctx.strokeStyle = '#5A1A00';
+      ctx.strokeText('7', 0, r * 0.08);
+      ctx.lineWidth = r * 0.16;
+      ctx.strokeStyle = '#FFD54A';
+      ctx.strokeText('7', 0, r * 0.08);
+      const g = ctx.createLinearGradient(0, -r, 0, r);
+      g.addColorStop(0, '#FF6E6E');
+      g.addColorStop(1, '#C62828');
+      ctx.fillStyle = g;
+      ctx.fillText('7', 0, r * 0.08);
+      break;
+    }
+  }
+  ctx.restore();
 }

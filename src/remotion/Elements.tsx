@@ -1,5 +1,5 @@
-import React, { useLayoutEffect, useRef } from 'react';
-import { useCurrentFrame, useVideoConfig } from 'remotion';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { continueRender, delayRender, useCurrentFrame, useVideoConfig } from 'remotion';
 import { FONT_FAMILY } from '../lib/fonts';
 import type { BackgroundSettings, ButtonSettings, ParticleSettings, TextSettings } from '../types';
 import { drawBackground, drawParticles } from './draw';
@@ -203,3 +203,89 @@ export const Placeholder: React.FC<{ label: string }> = ({ label }) => (
     {label}
   </div>
 );
+
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+function loadImage(url: string) {
+  let p = imageCache.get(url);
+  if (!p) {
+    p = new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = url;
+    });
+    imageCache.set(url, p);
+  }
+  return p;
+}
+
+/**
+ * Image drawn on a canvas so that a light band can sweep across it,
+ * clipped to the image's own transparency (works for any PNG).
+ */
+export const ShineImage: React.FC<{
+  url: string;
+  width: number;
+  height: number;
+  fit: 'contain' | 'cover';
+  shine: { pos: number; alpha: number; color: string } | null;
+}> = ({ url, width, height, fit, shine }) => {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+  const handle = useRef<number | null>(null);
+  if (handle.current === null) handle.current = delayRender(`Görsel yükleniyor: ${url}`);
+  const release = () => {
+    if (handle.current !== null && handle.current !== -1) {
+      continueRender(handle.current);
+      handle.current = -1;
+    }
+  };
+  useEffect(() => {
+    let alive = true;
+    loadImage(url)
+      .then((i) => alive && setImg(i))
+      .catch(release);
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  useEffect(() => release, []);
+  useLayoutEffect(() => {
+    const c = ref.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx || !img) return;
+    const W = Math.max(1, Math.round(width));
+    const H = Math.max(1, Math.round(height));
+    ctx.clearRect(0, 0, W, H);
+    const s = fit === 'cover' ? Math.max(W / img.naturalWidth, H / img.naturalHeight) : Math.min(W / img.naturalWidth, H / img.naturalHeight);
+    const dw = img.naturalWidth * s;
+    const dh = img.naturalHeight * s;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    if (shine && shine.alpha > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-atop';
+      const band = Math.max(W, H) * 0.28;
+      const cx = -band + shine.pos * (W + band * 2);
+      ctx.translate(cx, H / 2);
+      ctx.rotate(0.45);
+      const g = ctx.createLinearGradient(-band / 2, 0, band / 2, 0);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.5, shine.color);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.globalAlpha = shine.alpha;
+      ctx.fillStyle = g;
+      ctx.fillRect(-band / 2, -H * 2, band, H * 4);
+      ctx.restore();
+    }
+    release();
+  }, [img, width, height, fit, shine?.pos, shine?.alpha, shine?.color]);
+  return (
+    <canvas
+      ref={ref}
+      width={Math.max(1, Math.round(width))}
+      height={Math.max(1, Math.round(height))}
+      style={{ width: '100%', height: '100%', display: 'block' }}
+    />
+  );
+};

@@ -47,6 +47,7 @@ export function makeEffect(type: EffectType, fps: number, partial: Partial<Effec
     intensity: 1,
     ...(type === 'flyIn' ? { direction: 'bottom' as const } : {}),
     ...(type === 'glow' ? { color: '#FFD54A' } : {}),
+    ...(type === 'shine' ? { color: '#FFFFFF' } : {}),
     ...(type === 'flash' ? { color: '#FFF3B0' } : {}),
     ...(type === 'beat' ? { bpm: 120 } : {}),
     ...partial,
@@ -67,6 +68,10 @@ export const BG_PRESETS: { name: string; settings: BackgroundSettings }[] = [
     settings: { style: 'gradient', colorA: '#FFB300', colorB: '#FF6A00', rayColor: '#FFF0A0', rays: 12, speed: 1, bokeh: true },
   },
   {
+    name: 'Slotolog Parti',
+    settings: { style: 'party', colorA: '#FF8E16', colorB: '#FF4F9A', rayColor: '#FFD23F', rays: 18, speed: 1, bokeh: true },
+  },
+  {
     name: 'Lüks Altın-Siyah',
     settings: { style: 'luxury', colorA: '#FF8E16', colorB: '#3A2000', rayColor: '#FFD27A', rays: 22, speed: 1, bokeh: true },
   },
@@ -81,6 +86,8 @@ export const PARTICLE_PRESETS: { name: string; settings: ParticleSettings }[] = 
   { name: 'Altın patlaması', settings: { kind: 'burst', count: 40, speed: 1, size: 50, seed: 2 } },
   { name: 'Parıltılar', settings: { kind: 'sparkles', count: 45, speed: 1, size: 40, seed: 3 } },
   { name: 'Konfeti', settings: { kind: 'confetti', count: 90, speed: 1, size: 50, seed: 4 } },
+  { name: 'Uçuşan meyveler', settings: { kind: 'fruits', count: 10, speed: 1, size: 60, seed: 5 } },
+  { name: 'Meyve çerçevesi', settings: { kind: 'fruitFrame', count: 7, speed: 1, size: 85, seed: 6 } },
 ];
 
 export const defaultText = (p: Partial<TextSettings> = {}): TextSettings => ({

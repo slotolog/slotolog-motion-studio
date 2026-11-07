@@ -68,6 +68,10 @@ Bir katman seç → **Efektler** sekmesi veya sağ panelde “+ Efekt ekle”. E
 | Parlama, Işık patlaması | Etrafında ışık / arkasında ışık patlaması (renk seçilebilir) |
 | Titreme, Çarpma | Titreşim / büyükten küçülerek “çarpma” + sarsıntı |
 | Ritim (BPM) | Girilen BPM’e göre vurur (müziğin temposunu yaz) |
+| Süzülme | Yavaşça yukarı aşağı süzülür |
+| Işık yansıması | PNG’nin üstünden (sadece görselin kendisinde) ışık bandı geçer |
+
+Tekrarlayan efektlerde **Faz (sn)** ayarı, aynı efektli katmanların birbirinden farklı zamanlarda hareket etmesini sağlar.
 | Altın yağmuru / patlaması, Parıltılar, Konfeti | Ayrı parçacık katmanı olarak eklenir |
 
 ### Keyframe
@@ -102,6 +106,8 @@ Remotion; bireyler ve **en fazla 3 çalışanlı** şirketler için ücretsizdir
 
 ## 5. Şablonlar
 
+- **★ Slotolog 1000X Bomb Party (18 sn):** parti arka planı (turuncu-altın-pembe, dönen ışıklar, parlamalar), üst/alt meyve çerçevesi, uçuşan meyveler ve altınlar, logo rozeti, üstte 2 + altta 3 adet 1000X bomba (her biri ayrı katman: sallanma, süzülme, büyüme-küçülme, ışık yansıması — farklı fazlarla), 100.000TL + 450FS, TÜM YENİ OYUNCULARA, BONUSU AL.
+- **★ Slotolog Premium Bonus (15 sn):** lüks altın-siyah arka plan, logo, 100X–750X + 1000X görseli, bonus yazıları, buton.
 - **A · Çarpan animasyonu (15 sn):** sarı-turuncu ışın arka plan, parıltı + altın yağmuru, logo, başlık, 100X → 1000X sırayla çarparak gelir, dans eder ve parlar; 1000X’te altın patlaması; “HEMEN OYNA” butonu.
 - **B · Bonus tanıtımı (10 sn):** logo, “HOŞ GELDİN BONUSU”, 100.000TL + 450FS, altın patlaması ve yağmuru, nabız atan “BONUSU AL” butonu.
 - **C · Oyun videosu (15 sn):** koyu casino arka plan, üstte logo, ortada oyun videosu yeri (videonu yükle → ⇄), altta değiştirilebilir bonus metni ve buton. Video katmanı kısa ise “Döngü” ile tekrarlanır.

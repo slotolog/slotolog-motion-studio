@@ -3,11 +3,15 @@ import { AbsoluteFill, Img, Sequence, useCurrentFrame, useVideoConfig } from 're
 import { Audio, Video } from '@remotion/media';
 import { computeEffects, propAt } from '../lib/anim';
 import type { CompositionProps, Layer } from '../types';
-import { BackgroundCanvas, ButtonView, MultiplierSvg, ParticlesCanvas, Placeholder, SvgText } from './Elements';
+import { BackgroundCanvas, ButtonView, MultiplierSvg, ParticlesCanvas, Placeholder, ShineImage, SvgText } from './Elements';
+import type { EffectOutput } from '../lib/anim';
 
-const LayerContent: React.FC<{ layer: Layer; url?: string }> = ({ layer, url }) => {
+const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput['shine'] }> = ({ layer, url, shine }) => {
   switch (layer.type) {
     case 'image':
+      // layers with a light-reflection effect are drawn on a canvas
+      if (url && layer.effects.some((e) => e.type === 'shine'))
+        return <ShineImage url={url} width={layer.width} height={layer.height} fit={layer.objectFit ?? 'contain'} shine={shine ?? null} />;
       return url ? (
         <Img src={url} style={{ width: '100%', height: '100%', objectFit: layer.objectFit ?? 'contain', display: 'block' }} />
       ) : (
@@ -106,7 +110,7 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string> }> =
         />
       )}
       <div style={{ position: 'absolute', inset: 0, filter: filters.length ? filters.join(' ') : undefined }}>
-        <LayerContent layer={layer} url={url} />
+        <LayerContent layer={layer} url={url} shine={fx.shine} />
       </div>
     </div>
   );

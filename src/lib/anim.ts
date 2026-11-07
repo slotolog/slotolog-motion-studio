@@ -69,6 +69,8 @@ export interface EffectOutput {
   brightness: number;
   glow: { radius: number; color: string } | null;
   flash: { progress: number; color: string } | null;
+  /** moving light reflection over an image: band position 0..1, strength */
+  shine: { pos: number; alpha: number; color: string } | null;
 }
 
 export const neutralEffect = (): EffectOutput => ({
@@ -82,6 +84,7 @@ export const neutralEffect = (): EffectOutput => ({
   brightness: 1,
   glow: null,
   flash: null,
+  shine: null,
 });
 
 export const EFFECT_META: Record<
@@ -99,6 +102,8 @@ export const EFFECT_META: Record<
   shake: { label: 'Titreme', icon: '≋', defaultDuration: 1, description: 'Hızlıca titrer' },
   impact: { label: 'Çarpma', icon: '✊', defaultDuration: 1, description: 'Büyükten küçülerek çarpar' },
   beat: { label: 'Ritim (BPM)', icon: '♫', defaultDuration: 5, description: 'Belirlenen BPM ile vurur' },
+  float: { label: 'Süzülme', icon: '〰', defaultDuration: 5, description: 'Yavaşça yukarı aşağı süzülür' },
+  shine: { label: 'Işık yansıması', icon: '⟋', defaultDuration: 5, description: 'Görselin üstünden ışık geçer (PNG)' },
 };
 
 /**
@@ -114,7 +119,8 @@ export function computeEffects(
   const out = neutralEffect();
   effects.forEach((e, idx) => {
     if (frame < e.start || frame > e.start + e.duration) return;
-    const t = (frame - e.start) / fps; // seconds since effect start
+    const LOOPING = ['bounce', 'dance', 'sway', 'spin', 'pulse', 'glow', 'beat', 'float', 'shine', 'shake'];
+    const t = (frame - e.start) / fps + (LOOPING.includes(e.type) ? (e.phase ?? 0) : 0); // seconds since effect start
     const sp = e.speed || 1;
     const k = e.intensity ?? 1;
     switch (e.type) {
@@ -200,6 +206,20 @@ export function computeEffects(
           out.dy += noise(after * 40, idx + 9) * 22 * k * decay;
           out.scaleMul *= 1 + Math.sin(after * 30) * 0.08 * k * decay;
         }
+        break;
+      }
+      case 'float': {
+        const w = Math.PI * 2 * t * sp * 0.35;
+        out.dy += Math.sin(w) * 26 * k;
+        out.dx += Math.sin(w * 0.5 + 1.3) * 6 * k;
+        out.dRot += Math.sin(w + 0.8) * 2 * k;
+        break;
+      }
+      case 'shine': {
+        const period = 2.6 / sp;
+        const p = (((t % period) + period) % period) / period;
+        // the band crosses during the first half of the period, then rests
+        if (p < 0.5) out.shine = { pos: p / 0.5, alpha: Math.min(1, 0.55 * k), color: e.color ?? '#FFFFFF' };
         break;
       }
       case 'beat': {

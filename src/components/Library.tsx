@@ -224,7 +224,7 @@ const ElementsTab: React.FC = () => {
         <div className="grid grid-cols-2 gap-1.5">
           {PARTICLE_PRESETS.map((pp) => (
             <Btn key={pp.name} onClick={() => add(particlesLayer(project, pp.settings, pp.name, { start: Math.min(useStore.getState().frame, project.durationInFrames - 1) }))}>
-              {pp.settings.kind === 'sparkles' ? '✦' : pp.settings.kind === 'confetti' ? '🎉' : '🪙'} {pp.name}
+              {{ sparkles: '✦', confetti: '🎉', fruits: '🍒', fruitFrame: '🍋', coins: '🪙', burst: '🪙' }[pp.settings.kind]} {pp.name}
             </Btn>
           ))}
         </div>
