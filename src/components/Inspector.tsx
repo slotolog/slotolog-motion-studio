@@ -330,6 +330,7 @@ export const Inspector: React.FC = () => {
                 { value: 'rays', label: 'Dönen ışık huzmeleri' },
                 { value: 'gradient', label: 'Akan gradyan' },
                 { value: 'dark', label: 'Koyu casino' },
+                { value: 'luxury', label: 'Lüks altın-siyah' },
               ]}
             />
           </Row>

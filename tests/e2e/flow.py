@@ -14,14 +14,14 @@ with sync_playwright() as p:
     pg.click('[data-testid=template-game]'); time.sleep(1)
     pg.click('button:has-text("Medya")')
     pg.set_input_files('[data-testid=upload]', [f'{out}/game.mp4', f'{out}/icon.png', f'{out}/music.mp3'])
-    pg.wait_for_function("document.querySelectorAll('[draggable=true]').length===3", timeout=20000)
+    pg.wait_for_function("document.querySelectorAll('[data-testid=user-asset]').length===3", timeout=20000)
     print('assets uploaded: 3')
     # select placeholder via timeline label and replace with video
     pg.click('text=Oyun videosu (değiştir) >> nth=0'); time.sleep(0.3)
-    pg.locator('[draggable=true]').nth(0).locator('button[title="Seçili katmana uygula"]').click(); time.sleep(1)
+    pg.locator('[data-testid=user-asset]').nth(0).locator('button[title="Seçili katmana uygula"]').click(); time.sleep(1)
     print('video layer name:', pg.locator('[data-testid=inspector] input').first.input_value())
     # add icon as layer
-    pg.locator('[draggable=true]').nth(1).locator('button:has-text("Ekle")').click(); time.sleep(0.5)
+    pg.locator('[data-testid=user-asset]').nth(1).locator('button:has-text("Ekle")').click(); time.sleep(0.5)
     x0 = val(pg,'X konumu'); print('icon x before drag', x0)
     # drag in preview: icon is centred on the stage
     st = pg.locator('[data-stage]').bounding_box()
@@ -40,7 +40,7 @@ with sync_playwright() as p:
     pg.click('button:has-text("Efektler") >> nth=0'); pg.click('button:has-text("Zıplama")'); time.sleep(0.3)
     print('effects on icon:', pg.locator('[data-testid=inspector] >> text=Zıplama').count())
     # audio
-    pg.click('button:has-text("Medya")'); pg.locator('[draggable=true]').nth(2).locator('button:has-text("Ekle")').click()
+    pg.click('button:has-text("Medya")'); pg.locator('[data-testid=user-asset]').nth(2).locator('button:has-text("Ekle")').click()
     # shorten project to 3s
     d = pg.locator('text=Süre (sn) >> xpath=following-sibling::div//input').first
     d.fill('3'); d.press('Tab'); time.sleep(1.5)
@@ -49,7 +49,7 @@ with sync_playwright() as p:
     # reload -> persisted?
     pg.reload(); pg.wait_for_selector('[data-testid=play]'); time.sleep(1)
     print('after reload:', pg.locator('text=/KATMANLAR \\(\\d+\\)/').inner_text(), '| title:', pg.locator('input').first.input_value())
-    pg.click('button:has-text("Medya")'); print('assets after reload:', pg.locator('[draggable=true] img, [draggable=true] video').count(), 'thumbs')
+    pg.click('button:has-text("Medya")'); print('assets after reload:', pg.locator('[data-testid=user-asset] img, [data-testid=user-asset] video').count(), 'thumbs')
     pg.click('[data-testid=open-projects]'); time.sleep(0.5)
     print('saved projects:', pg.locator('[data-testid=project-list] > div').count())
     pg.keyboard.press('Escape'); pg.mouse.click(5,5)

@@ -61,7 +61,7 @@ export interface Effect {
   bpm?: number;
 }
 
-export type BackgroundStyle = 'rays' | 'gradient' | 'dark';
+export type BackgroundStyle = 'rays' | 'gradient' | 'dark' | 'luxury';
 
 export interface BackgroundSettings {
   style: BackgroundStyle;
@@ -148,6 +148,8 @@ export interface Asset {
   height?: number;
   /** seconds, for video / audio */
   duration?: number;
+  /** built-in asset shipped with the app (relative URL); no blob in IndexedDB */
+  src?: string;
 }
 
 export interface Project {

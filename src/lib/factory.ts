@@ -67,6 +67,10 @@ export const BG_PRESETS: { name: string; settings: BackgroundSettings }[] = [
     settings: { style: 'gradient', colorA: '#FFB300', colorB: '#FF6A00', rayColor: '#FFF0A0', rays: 12, speed: 1, bokeh: true },
   },
   {
+    name: 'Lüks Altın-Siyah',
+    settings: { style: 'luxury', colorA: '#FF8E16', colorB: '#3A2000', rayColor: '#FFD27A', rays: 22, speed: 1, bokeh: true },
+  },
+  {
     name: 'Koyu Casino',
     settings: { style: 'dark', colorA: '#FF8E16', colorB: '#2A2A2A', rayColor: '#FF8E16', rays: 16, speed: 1, bokeh: true },
   },

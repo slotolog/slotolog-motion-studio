@@ -83,6 +83,46 @@ export function drawBackground(ctx: Ctx, s: BackgroundSettings, t: number, w: nu
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
     }
+  } else if (s.style === 'luxury') {
+    const ly = h * 0.58;
+    const g = ctx.createRadialGradient(cx, ly, 0, cx, ly, big * 0.85);
+    g.addColorStop(0, s.colorB);
+    g.addColorStop(0.55, '#120A02');
+    g.addColorStop(1, '#040302');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    const pulse = 0.85 + Math.sin(t * 1.6 * sp) * 0.15;
+    const glow = ctx.createRadialGradient(cx, ly, 0, cx, ly, big * 0.42);
+    glow.addColorStop(0, hexToRgba(s.colorA, 0.5 * pulse));
+    glow.addColorStop(1, hexToRgba(s.colorA, 0));
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+    rays(ctx, cx, ly, big, Math.max(4, s.rays), t * 0.15 * sp, s.rayColor, 0.15);
+    rays(ctx, cx, ly, big * 0.7, Math.max(4, s.rays), -t * 0.1 * sp, s.colorA, 0.08);
+    // top and bottom warm edge light
+    const top = ctx.createLinearGradient(0, 0, 0, h * 0.25);
+    top.addColorStop(0, hexToRgba(s.colorA, 0.28));
+    top.addColorStop(1, hexToRgba(s.colorA, 0));
+    ctx.fillStyle = top;
+    ctx.fillRect(0, 0, w, h * 0.25);
+    const bot = ctx.createLinearGradient(0, h, 0, h * 0.75);
+    bot.addColorStop(0, hexToRgba(s.colorA, 0.35));
+    bot.addColorStop(1, hexToRgba(s.colorA, 0));
+    ctx.fillStyle = bot;
+    ctx.fillRect(0, h * 0.75, w, h * 0.25);
+    // diagonal light sweep
+    const period = 4.5 / Math.max(0.1, sp);
+    const ph = (t % period) / period;
+    ctx.save();
+    ctx.translate(-w * 0.6 + ph * w * 2.2, h / 2);
+    ctx.rotate(-0.4);
+    const sw = ctx.createLinearGradient(-160, 0, 160, 0);
+    sw.addColorStop(0, 'rgba(255,220,150,0)');
+    sw.addColorStop(0.5, 'rgba(255,220,150,0.14)');
+    sw.addColorStop(1, 'rgba(255,220,150,0)');
+    ctx.fillStyle = sw;
+    ctx.fillRect(-160, -h * 1.5, 320, h * 3);
+    ctx.restore();
   } else {
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, big * 0.8);
     g.addColorStop(0, hexToRgba(s.colorB, 1));
@@ -102,7 +142,7 @@ export function drawBackground(ctx: Ctx, s: BackgroundSettings, t: number, w: nu
     }
   }
 
-  if (s.bokeh) bokeh(ctx, w, h, t * sp, s.style === 'dark' ? s.colorA : '#FFFFFF');
+  if (s.bokeh) bokeh(ctx, w, h, t * sp, s.style === 'dark' || s.style === 'luxury' ? s.colorA : '#FFFFFF');
 
   const v = ctx.createRadialGradient(cx, cy, big * 0.35, cx, cy, big * 0.85);
   v.addColorStop(0, 'rgba(0,0,0,0)');

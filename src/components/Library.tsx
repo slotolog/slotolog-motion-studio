@@ -12,6 +12,7 @@ import {
   textLayer,
 } from '../lib/factory';
 import { TEMPLATES } from '../lib/templates';
+import { BRAND_ASSETS, brandUrl, type BrandKey } from '../lib/brand';
 import type { BackgroundSettings, EffectType } from '../types';
 import { Btn } from './ui';
 
@@ -25,7 +26,9 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ];
 
 const bgSwatch = (s: BackgroundSettings) =>
-  s.style === 'dark'
+  s.style === 'luxury'
+    ? `repeating-conic-gradient(from 0deg at 50% 60%, ${s.rayColor}33 0deg 6deg, transparent 6deg 16deg), radial-gradient(circle at 50% 60%, ${s.colorA}aa, ${s.colorB} 45%, #050403)`
+    : s.style === 'dark'
     ? `radial-gradient(circle, ${s.colorB}, #0b0b0b), #111`
     : s.style === 'gradient'
       ? `linear-gradient(135deg, ${s.colorA}, ${s.colorB})`
@@ -82,12 +85,45 @@ const MediaTab: React.FC = () => {
           onChange={(e) => e.target.files && upload(e.target.files)}
         />
       </div>
-      {assets.length === 0 && <p className="text-center text-[11px] text-neutral-500">Henüz medya yok. Logo, oyun ikonu, video veya müzik yükle.</p>}
+      <div data-testid="brand-assets">
+        <h4 className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-[#FF8E16]">Slotolog marka varlıkları</h4>
+        <div className="space-y-1.5">
+          {(Object.keys(BRAND_ASSETS) as BrandKey[]).map((k) => {
+            const a = BRAND_ASSETS[k];
+            return (
+              <div
+                key={k}
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData('application/x-slotolog-asset', st.addBrandAsset(k))}
+                className="flex items-center gap-2 rounded-md border border-white/10 bg-[#141414] p-1.5"
+              >
+                <div className={`flex h-10 w-16 shrink-0 items-center justify-center rounded ${k === 'logo' ? 'bg-white' : 'bg-[#2a1a08]'}`}>
+                  <img src={brandUrl(a.src)} alt="" className="max-h-9 max-w-14 object-contain" />
+                </div>
+                <span className="min-w-0 flex-1 truncate text-[11px] text-neutral-300" title={a.name}>
+                  {a.name}
+                </span>
+                <Btn small variant="primary" onClick={() => st.addAssetLayer(st.addBrandAsset(k))}>
+                  Ekle
+                </Btn>
+                {canApply && (
+                  <Btn small title="Seçili katmana uygula" onClick={() => st.applyAssetToLayer(selected!.id, st.addBrandAsset(k))}>
+                    ⇄
+                  </Btn>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <h4 className="pt-1 text-[11px] font-bold uppercase tracking-wider text-neutral-400">Yüklediklerim</h4>
+      {assets.filter((a) => !a.src).length === 0 && <p className="text-center text-[11px] text-neutral-500">Henüz medya yok. Logo, oyun ikonu, video veya müzik yükle.</p>}
       <div className="grid grid-cols-2 gap-2">
-        {assets.map((a) => (
+        {assets.filter((a) => !a.src).map((a) => (
           <div
             key={a.id}
             draggable
+            data-testid="user-asset"
             onDragStart={(e) => e.dataTransfer.setData('application/x-slotolog-asset', a.id)}
             className="group overflow-hidden rounded-md border border-white/10 bg-[#141414]"
           >

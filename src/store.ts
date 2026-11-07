@@ -3,6 +3,7 @@ import { baseLayer, makeEffect, uid } from './lib/factory';
 import { propAt } from './lib/anim';
 import { getAssetBlob, saveAssetBlob, saveProject } from './lib/storage';
 import { multiplierTemplate } from './lib/templates';
+import { BRAND_ASSETS, brandUrl, type BrandKey } from './lib/brand';
 import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project } from './types';
 import { ASPECT_SIZES } from './types';
 
@@ -41,6 +42,7 @@ interface State {
 
   addAssetFromFile: (file: File) => Promise<Asset>;
   addAssetLayer: (assetId: string, at?: { x: number; y: number }) => void;
+  addBrandAsset: (key: BrandKey) => string;
   applyAssetToLayer: (layerId: string, assetId: string) => void;
   removeAsset: (assetId: string) => void;
 
@@ -128,6 +130,10 @@ export const useStore = create<State>((set, get) => {
       Object.values(get().assetUrls).forEach((u) => URL.revokeObjectURL(u));
       const urls: Record<string, string> = {};
       for (const a of p.assets) {
+        if (a.src) {
+          urls[a.id] = brandUrl(a.src);
+          continue;
+        }
         const b = await getAssetBlob(a.id);
         if (b) urls[a.id] = URL.createObjectURL(b);
       }
@@ -251,6 +257,12 @@ export const useStore = create<State>((set, get) => {
       commit((p) => ({ ...p, assets: [...p.assets, asset] }));
       return asset;
     },
+    addBrandAsset: (key) => {
+      const a = BRAND_ASSETS[key];
+      set({ assetUrls: { ...get().assetUrls, [a.id]: brandUrl(a.src) } });
+      if (!get().project.assets.some((x) => x.id === a.id)) commit((p) => ({ ...p, assets: [...p.assets, { ...a }] }));
+      return a.id;
+    },
     addAssetLayer: (assetId, at) => {
       const { project, frame } = get();
       const a = project.assets.find((x) => x.id === assetId);
@@ -258,7 +270,7 @@ export const useStore = create<State>((set, get) => {
       const { width: W, height: H } = ASPECT_SIZES[project.aspect];
       const aw = a.width ?? 500;
       const ah = a.height ?? 500;
-      const fit = Math.min((W * 0.7) / aw, (H * 0.7) / ah, a.kind === 'image' ? 1.5 : 10);
+      const fit = Math.min((W * 0.7) / aw, (H * 0.7) / ah, a.kind === 'image' && !a.src ? 1.5 : 10);
       const start = a.kind === 'image' ? 0 : Math.min(frame, project.durationInFrames - 1);
       const mediaFrames = a.duration ? Math.ceil(a.duration * project.fps) : project.durationInFrames;
       const l = baseLayer(
