@@ -1,5 +1,6 @@
 import { Easing, interpolate, spring } from 'remotion';
 import type { AnimProp, Effect, EffectType, EasingName, Keyframe, Layer } from '../types';
+import { beatPosition, boostAt, sinceBeat, type MusicSync } from './music';
 
 const EASINGS: Record<EasingName, (t: number) => number> = {
   linear: (t) => t,
@@ -71,6 +72,8 @@ export interface EffectOutput {
   flash: { progress: number; color: string } | null;
   /** moving light reflection over an image: band position 0..1, strength */
   shine: { pos: number; alpha: number; color: string } | null;
+  /** golden explosions emitted from the layer: age in seconds */
+  explosions: { age: number; seed: number; power: number }[];
 }
 
 export const neutralEffect = (): EffectOutput => ({
@@ -85,6 +88,7 @@ export const neutralEffect = (): EffectOutput => ({
   glow: null,
   flash: null,
   shine: null,
+  explosions: [],
 });
 
 export const EFFECT_META: Record<
@@ -102,24 +106,56 @@ export const EFFECT_META: Record<
   shake: { label: 'Titreme', icon: '≋', defaultDuration: 1, description: 'Hızlıca titrer' },
   impact: { label: 'Çarpma', icon: '✊', defaultDuration: 1, description: 'Büyükten küçülerek çarpar' },
   beat: { label: 'Ritim (BPM)', icon: '♫', defaultDuration: 5, description: 'Belirlenen BPM ile vurur' },
-  float: { label: 'Süzülme', icon: '〰', defaultDuration: 5, description: 'Yavaşça yukarı aşağı süzülür' },
-  shine: { label: 'Işık yansıması', icon: '⟋', defaultDuration: 5, description: 'Görselin üstünden ışık geçer (PNG)' },
+  float: { label: 'Floating Motion (süzülme)', icon: '〰', defaultDuration: 5, description: 'Yavaşça yukarı aşağı süzülür' },
+  shine: { label: 'Light Sweep (ışık yansıması)', icon: '⟋', defaultDuration: 5, description: 'PNG’nin üstünden ışık geçer' },
+  dancePro: { label: 'Dance Pro', icon: '💃', defaultDuration: 6, description: 'Zıplayarak sağa sola dans; müzikte vuruşa uyar' },
+  bouncePro: { label: 'Bounce Pro', icon: '⤒', defaultDuration: 4, description: 'Yerçekimli zıplama, ezilme-esneme' },
+  smoothRotate: { label: 'Smooth Rotation', icon: '↻', defaultDuration: 6, description: 'Yumuşak hızlanıp yavaşlayan açılı dönüş' },
+  groupDance: { label: 'Group Dance', icon: '⇄', defaultDuration: 8, description: 'Ekran merkezine yaklaşıp uzaklaşır, çapraz akar' },
+  cameraZoom: { label: 'Camera Zoom', icon: '🎥', defaultDuration: 6, description: 'Yakınlaş / uzaklaş (Kamera katmanında tüm sahne)' },
+  impactShake: { label: 'Impact Shake', icon: '💥', defaultDuration: 1, description: 'Sönümlenen sarsıntı (Kamera’da ekran sarsıntısı)' },
+  goldExplosion: { label: 'Golden Explosion', icon: '🪙', defaultDuration: 2, description: 'Nesneden altın patlaması fışkırır' },
+  beatSync: { label: 'Music Beat Sync', icon: '🎵', defaultDuration: 10, description: 'Müzikteki her vuruşta büyür ve parlar' },
 };
 
 /**
  * Computes the combined animation offsets of all effects of a layer
  * at a layer-local frame.
  */
+export interface EffectContext {
+  /** the layer's own (keyframed) centre, used by Group Dance */
+  base?: { x: number; y: number };
+  /** composition second at which the layer starts */
+  layerStartSec?: number;
+  music?: MusicSync | null;
+}
+
+export const LOOPING_EFFECTS: EffectType[] = [
+  'bounce', 'dance', 'sway', 'spin', 'pulse', 'glow', 'beat', 'float', 'shine', 'shake',
+  'dancePro', 'bouncePro', 'smoothRotate', 'groupDance', 'beatSync',
+];
+export const MUSIC_EFFECTS: EffectType[] = ['dancePro', 'groupDance', 'goldExplosion', 'beatSync', 'impactShake'];
+
+const smooth = (x: number) => x * x * (3 - 2 * x);
+
 export function computeEffects(
   effects: Effect[],
   frame: number,
   fps: number,
   comp: { width: number; height: number },
+  ctx: EffectContext = {},
 ): EffectOutput {
   const out = neutralEffect();
+  const music = ctx.music ?? null;
   effects.forEach((e, idx) => {
     if (frame < e.start || frame > e.start + e.duration) return;
-    const LOOPING = ['bounce', 'dance', 'sway', 'spin', 'pulse', 'glow', 'beat', 'float', 'shine', 'shake'];
+    const LOOPING = LOOPING_EFFECTS as string[];
+    const nowComp = (ctx.layerStartSec ?? 0) + frame / fps;
+    const startComp = (ctx.layerStartSec ?? 0) + e.start / fps;
+    const synced = !!music && e.syncToMusic !== false && MUSIC_EFFECTS.includes(e.type);
+    const boost = synced ? boostAt(music, nowComp) : 1;
+    // "music only" effects stay silent until a song with analysed beats is added
+    if (e.syncToMusic === true && !music && (e.type === 'goldExplosion' || e.type === 'impactShake' || e.type === 'beatSync')) return;
     const t = (frame - e.start) / fps + (LOOPING.includes(e.type) ? (e.phase ?? 0) : 0); // seconds since effect start
     const sp = e.speed || 1;
     const k = e.intensity ?? 1;
@@ -220,6 +256,104 @@ export function computeEffects(
         const p = (((t % period) + period) % period) / period;
         // the band crosses during the first half of the period, then rests
         if (p < 0.5) out.shine = { pos: p / 0.5, alpha: Math.min(1, 0.55 * k), color: e.color ?? '#FFFFFF' };
+        break;
+      }
+      case 'dancePro': {
+        const kk = k * boost;
+        const cycle = synced ? Math.PI * (beatPosition(music!, nowComp) * sp + (e.phase ?? 0)) : Math.PI * 2 * t * sp * 0.9;
+        const hop = Math.pow(Math.abs(Math.sin(cycle)), 0.8);
+        out.dy -= hop * 48 * kk;
+        out.dRot += Math.sin(cycle) * 10 * kk;
+        out.dx += Math.sin(cycle) * 22 * kk;
+        const land = 1 - hop;
+        if (land > 0.8) {
+          const q = (land - 0.8) / 0.2;
+          out.scaleY *= 1 - 0.08 * kk * q;
+          out.scaleX *= 1 + 0.06 * kk * q;
+        }
+        break;
+      }
+      case 'bouncePro': {
+        const period = 0.75 / sp;
+        const ph = (((t / period) % 1) + 1) % 1;
+        out.dy -= 4 * ph * (1 - ph) * 80 * k;
+        const near = Math.min(ph, 1 - ph);
+        if (near < 0.08) {
+          const q = 1 - near / 0.08;
+          out.scaleY *= 1 - 0.13 * k * q;
+          out.scaleX *= 1 + 0.1 * k * q;
+        } else out.scaleY *= 1 + 0.04 * k * Math.sin(Math.PI * ph);
+        break;
+      }
+      case 'smoothRotate': {
+        const period = 3 / sp;
+        const ph = (((t / period) % 1) + 1) % 1;
+        const tri = ph < 0.5 ? ph * 2 : 2 - ph * 2;
+        out.dRot += (smooth(tri) * 2 - 1) * 14 * k;
+        break;
+      }
+      case 'groupDance': {
+        const b = ctx.base ?? { x: comp.width / 2, y: comp.height / 2 };
+        const vx = comp.width / 2 - b.x;
+        const vy = comp.height * 0.45 - b.y;
+        const dist = Math.hypot(vx, vy) || 1;
+        const nx = vx / dist;
+        const ny = vy / dist;
+        const amp = Math.min(dist * 0.14, 90) * k * boost;
+        const w = synced ? (Math.PI * (beatPosition(music!, nowComp) + (e.phase ?? 0)) * sp) / 4 : Math.PI * 2 * t * sp * 0.3;
+        const approach = 0.5 - 0.5 * Math.cos(w);
+        out.dx += nx * amp * approach - ny * amp * 0.35 * Math.sin(w * 0.5);
+        out.dy += ny * amp * approach + nx * amp * 0.35 * Math.sin(w * 0.5);
+        out.scaleMul *= 1 + 0.06 * k * approach;
+        break;
+      }
+      case 'cameraZoom': {
+        const durS = Math.max(0.1, e.duration / fps);
+        const lin = Math.min(1, ((frame - e.start) / fps) * sp / durS);
+        const p = Easing.inOut(Easing.cubic)(lin);
+        const mode = e.zoomMode ?? 'inout';
+        const z = 0.1 * k;
+        out.scaleMul *= mode === 'in' ? 1 + z * p : mode === 'out' ? 1 + z * (1 - p) : 1 + z * (0.5 - 0.5 * Math.cos(2 * Math.PI * ((frame - e.start) / fps) * sp / durS));
+        break;
+      }
+      case 'impactShake': {
+        let age = (frame - e.start) / fps;
+        if (synced) {
+          const strong = music!.strong.filter((x) => x >= startComp && x <= nowComp);
+          if (!strong.length) break;
+          age = nowComp - strong[strong.length - 1];
+        }
+        const decay = Math.exp(-age * 5 * sp);
+        if (decay < 0.01) break;
+        out.dx += noise(age * 35, idx + 5) * 28 * k * decay;
+        out.dy += noise(age * 35, idx + 11) * 28 * k * decay;
+        out.dRot += noise(age * 30, idx + 17) * 2.5 * k * decay;
+        out.scaleMul *= 1 + 0.05 * k * Math.exp(-age * 12);
+        break;
+      }
+      case 'goldExplosion': {
+        const life = 1.8 / Math.max(0.3, sp);
+        const age = (frame - e.start) / fps;
+        if (age < life && e.syncToMusic !== true) out.explosions.push({ age: age * sp, seed: idx * 13 + 1, power: k });
+        if (synced) {
+          for (const b of music!.strong) {
+            if (b > startComp && b <= nowComp && nowComp - b < life) out.explosions.push({ age: (nowComp - b) * sp, seed: Math.round(b * 100), power: k * boost });
+          }
+        }
+        break;
+      }
+      case 'beatSync': {
+        let pulse = 0;
+        if (music && e.syncToMusic !== false) {
+          const sb = sinceBeat(music, nowComp);
+          if (sb) pulse = Math.exp(-sb.dt * 7) * (0.6 + 0.6 * sb.strength) * boost;
+        } else if (e.bpm) {
+          // optional fallback tempo when there is no analysed music
+          const beatLen = 60 / (e.bpm * sp);
+          pulse = Math.exp(-((t % beatLen) / beatLen) * 6);
+        }
+        out.scaleMul *= 1 + 0.12 * k * pulse;
+        out.brightness *= 1 + 0.15 * k * pulse;
         break;
       }
       case 'beat': {

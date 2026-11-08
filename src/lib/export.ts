@@ -8,7 +8,11 @@ export const LICENSE_KEY_STORAGE = 'slotolog:remotionLicense';
 export const getLicenseKey = () => localStorage.getItem(LICENSE_KEY_STORAGE) || 'free-license';
 
 export function projectHasAudio(p: Project) {
-  return p.layers.some((l) => l.visible && !l.muted && (l.type === 'audio' || l.type === 'video') && !!l.assetId);
+  return p.layers.some(
+    (l) =>
+      l.visible &&
+      ((!l.muted && (l.type === 'audio' || l.type === 'video') && !!l.assetId) || !!l.startSound || l.effects.some((e) => !!e.sound)),
+  );
 }
 
 export async function checkExportSupport(p: Project) {

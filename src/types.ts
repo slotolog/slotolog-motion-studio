@@ -15,7 +15,8 @@ export type LayerType =
   | 'button'
   | 'background'
   | 'particles'
-  | 'placeholder';
+  | 'placeholder'
+  | 'camera';
 
 export type AnimProp = 'x' | 'y' | 'scale' | 'rotation' | 'opacity';
 export const ANIM_PROPS: AnimProp[] = ['x', 'y', 'scale', 'rotation', 'opacity'];
@@ -42,7 +43,18 @@ export type EffectType =
   | 'impact'
   | 'beat'
   | 'float'
-  | 'shine';
+  | 'shine'
+  | 'dancePro'
+  | 'bouncePro'
+  | 'smoothRotate'
+  | 'groupDance'
+  | 'cameraZoom'
+  | 'impactShake'
+  | 'goldExplosion'
+  | 'beatSync';
+
+export type SfxKey = 'whoosh' | 'bounce' | 'coins' | 'sparkle' | 'riser' | 'button';
+export type ZoomMode = 'in' | 'out' | 'inout';
 
 export type Direction = 'left' | 'right' | 'top' | 'bottom';
 
@@ -63,6 +75,12 @@ export interface Effect {
   bpm?: number;
   /** seconds added to the time of looping effects, so copies do not move in sync */
   phase?: number;
+  /** sound effect played when this effect starts */
+  sound?: SfxKey;
+  soundVolume?: number;
+  zoomMode?: ZoomMode;
+  /** follow the music beats (Dance Pro, Group Dance, Golden Explosion, Beat Sync) */
+  syncToMusic?: boolean;
 }
 
 export type BackgroundStyle = 'rays' | 'gradient' | 'dark' | 'luxury' | 'party';
@@ -135,6 +153,20 @@ export interface Layer {
   muted?: boolean;
   /** loop video when it is shorter than the layer */
   loop?: boolean;
+  /** seconds skipped at the start of the media (trim) */
+  trimStart?: number;
+  fadeIn?: number;
+  fadeOut?: number;
+  channel?: 'music' | 'sfx';
+  /** sound played when the layer appears */
+  startSound?: SfxKey;
+  startSoundVolume?: number;
+  /** soft drop shadow that follows the object's scale */
+  shadow?: boolean;
+  /** blur proportional to movement speed */
+  motionBlur?: boolean;
+  /** how strongly the camera moves this layer (0 = fixed, 1 = full) */
+  depth?: number;
   text?: TextSettings;
   button?: ButtonSettings;
   background?: BackgroundSettings;
@@ -154,6 +186,36 @@ export interface Asset {
   duration?: number;
   /** built-in asset shipped with the app (relative URL); no blob in IndexedDB */
   src?: string;
+  /** result of the automatic rhythm analysis (seconds in the source file) */
+  analysis?: AudioAnalysis;
+}
+
+export interface AudioAnalysis {
+  bpm: number;
+  beats: number[];
+  /** 0..1 strength of each beat */
+  strengths: number[];
+  duration: number;
+}
+
+export interface MusicSection {
+  id: string;
+  label: string;
+  /** composition seconds */
+  start: number;
+  end: number;
+  /** multiplier for music-synced animations inside the section */
+  boost: number;
+}
+
+export interface ProjectAudio {
+  musicVolume: number;
+  sfxVolume: number;
+  musicMuted: boolean;
+  sfxMuted: boolean;
+  /** music-synced animations on/off */
+  syncEnabled: boolean;
+  sections: MusicSection[];
 }
 
 export interface Project {
@@ -166,6 +228,7 @@ export interface Project {
   layers: Layer[];
   assets: Asset[];
   updatedAt: number;
+  audio?: ProjectAudio;
 }
 
 export interface CompositionProps extends Record<string, unknown> {

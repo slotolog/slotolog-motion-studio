@@ -6,7 +6,7 @@ import { propAt } from '../lib/anim';
 import { playerApi } from '../lib/player';
 import { ASPECT_SIZES, type Layer } from '../types';
 
-const FULL = new Set(['background', 'particles', 'audio']);
+const FULL = new Set(['background', 'particles', 'audio', 'camera']);
 
 function boxAt(l: Layer, frame: number) {
   const local = frame - l.start;

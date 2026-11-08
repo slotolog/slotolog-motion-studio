@@ -48,6 +48,7 @@ export function makeEffect(type: EffectType, fps: number, partial: Partial<Effec
     ...(type === 'flyIn' ? { direction: 'bottom' as const } : {}),
     ...(type === 'glow' ? { color: '#FFD54A' } : {}),
     ...(type === 'shine' ? { color: '#FFFFFF' } : {}),
+    ...(type === 'cameraZoom' ? { zoomMode: 'inout' as const } : {}),
     ...(type === 'flash' ? { color: '#FFF3B0' } : {}),
     ...(type === 'beat' ? { bpm: 120 } : {}),
     ...partial,
@@ -159,4 +160,10 @@ export function buttonLayer(project: Project, label = 'BONUSU AL', partial: Part
 
 export function emptyProject(aspect: Aspect = '9:16', name = 'Yeni proje'): Project {
   return { id: uid(), name, aspect, fps: 30, durationInFrames: 30 * 10, layers: [], assets: [], updatedAt: Date.now() };
+}
+
+/** Invisible camera: its effects / keyframes move the whole scene (with depth parallax). */
+export function cameraLayer(project: Project, partial: Partial<Layer> = {}): Layer {
+  const { width, height } = ASPECT_SIZES[project.aspect];
+  return baseLayer({ type: 'camera', name: 'Kamera', width, height, ...partial }, project);
 }

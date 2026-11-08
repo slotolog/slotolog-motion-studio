@@ -1,5 +1,6 @@
 import type { Keyframe, Project } from '../types';
 import { brandLayer } from './brand';
+import { cameraLayer } from './factory';
 import {
   BG_PRESETS,
   PARTICLE_PRESETS,
@@ -320,7 +321,140 @@ export function bombPartyTemplate(): Project {
   return p;
 }
 
+/** F. Slotolog 1000X Bomb Party 2.0 — 18 sn, kamera, Dance Pro, özgün ses efektleri, müziğe hazır */
+export function bombParty2Template(): Project {
+  const p = emptyProject('9:16', 'Slotolog 1000X Bomb Party 2.0');
+  p.durationInFrames = s(18);
+  const end = p.durationInFrames;
+  const from = (sec: number) => ({ start: s(sec), duration: end - s(sec) });
+  const fx = makeEffect;
+  /** effect at an absolute second for a layer that starts at layerSec */
+  const at = (layerSec: number, sec: number) => s(sec - layerSec);
+
+  const bg = backgroundLayer(p, bgPreset('Slotolog Parti'), 'Parti arka planı');
+  bg.depth = 0.45;
+  const frame = particlesLayer(p, { kind: 'fruitFrame', count: 7, speed: 1, size: 82, seed: 3 }, 'Meyve çerçevesi (üst/alt)', { depth: 0.7 });
+  frame.particles!.seed = 3;
+  const fruits = particlesLayer(p, { kind: 'fruits', count: 9, speed: 0.75, size: 44, seed: 8 }, 'Uçuşan meyveler', { opacity: 0.9, depth: 0.8 });
+  fruits.particles!.seed = 8;
+  const coins = particlesLayer(p, { kind: 'coins', count: 16, speed: 0.7, size: 24, seed: 12 }, 'Küçük altınlar', { depth: 0.9 });
+  coins.particles!.seed = 12;
+
+  const lg = brandLayer(p, 'logoBadge', 560, { name: 'Slotolog logo', y: 178 });
+  lg.shadow = true;
+  lg.depth = 0.6;
+  lg.effects = [
+    fx('flyIn', 30, { direction: 'top', duration: s(0.7), intensity: 0.45, sound: 'whoosh', soundVolume: 0.35 }),
+    fx('float', 30, { start: s(0.7), duration: end, speed: 0.6, intensity: 0.3 }),
+    ...[3.0, 9.0, 16.4].map((sec) => fx('shine', 30, { start: s(sec), duration: s(1.3), speed: 1, intensity: 0.8, sound: 'sparkle', soundVolume: 0.3 })),
+  ];
+
+  // 2 on top, 3 below — independent layers with their own rhythm
+  const bombs: [number, number, number, number, 'left' | 'right' | 'bottom'][] = [
+    [315, 495, 390, 0.15, 'left'],
+    [765, 495, 390, 0.3, 'right'],
+    [185, 895, 330, 0.5, 'left'],
+    [540, 895, 330, 0.65, 'bottom'],
+    [895, 895, 330, 0.8, 'right'],
+  ];
+  const bombLayers = bombs.map(([x, y, w, sec, dir], i) => {
+    const l = brandLayer(p, 'mult1000', w, { name: `1000X bomba ${i + 1}`, x, y, ...from(sec) });
+    l.shadow = true;
+    l.motionBlur = true;
+    const ph = [0, 0.55, 0.25, 0.8, 0.4][i];
+    const live = s(0.7);
+    l.effects = [
+      fx('flyIn', 30, { direction: dir, duration: s(0.7), intensity: 0.5, ...(i % 2 === 0 ? { sound: 'whoosh' as const, soundVolume: 0.3 } : {}) }),
+      fx('flash', 30, { start: s(0.45), duration: s(0.6), intensity: 0.6, color: '#FFF6D0' }),
+      fx('dancePro', 30, { start: live, duration: end, speed: [0.85, 0.95, 0.9, 1.0, 0.8][i], intensity: 0.5, phase: ph }),
+      fx('groupDance', 30, { start: live, duration: end, speed: [0.8, 0.75, 0.85, 0.7, 0.9][i], intensity: 0.45, phase: ph * 3 }),
+      fx('smoothRotate', 30, { start: live, duration: end, speed: [0.9, 1.1, 1.0, 0.85, 1.05][i], intensity: 0.55, phase: ph * 4 }),
+      fx('float', 30, { start: live, duration: end, speed: [0.9, 1.05, 0.95, 0.85, 1.1][i], intensity: 0.6, phase: ph * 5 }),
+      fx('pulse', 30, { start: live, duration: end, speed: [0.42, 0.36, 0.48, 0.4, 0.45][i], intensity: 0.25, phase: ph * 2 }),
+      fx('shine', 30, { start: live, duration: end, speed: [0.45, 0.42, 0.5, 0.47, 0.4][i], intensity: 1, phase: i * 0.55 }),
+      fx('glow', 30, { start: live, duration: end, color: '#FFD23F', speed: 0.5, intensity: 0.4, phase: ph }),
+      fx('beatSync', 30, { start: live, duration: end, intensity: 0.5 }),
+      // accents: a real bounce together, flash waves
+      ...[5.0, 10.5].map((acc) =>
+        fx('bouncePro', 30, { start: at(sec, acc + i * 0.08), duration: s(0.75), intensity: 0.8, ...(i === 3 ? { sound: 'bounce' as const, soundVolume: 0.55 } : {}) }),
+      ),
+      ...[7.0, 12.5].map((acc) => fx('flash', 30, { start: at(sec, acc + i * 0.12), duration: s(0.7), intensity: 0.55, color: '#FFFFFF' })),
+    ];
+    return l;
+  });
+  // golden explosions from bombs
+  bombLayers[3].effects.push(fx('goldExplosion', 30, { start: at(0.65, 7.0), duration: s(2), intensity: 1, sound: 'coins', soundVolume: 0.5 }));
+  bombLayers[0].effects.push(fx('goldExplosion', 30, { start: at(0.15, 12.5), duration: s(2), intensity: 0.8, sound: 'coins', soundVolume: 0.45 }));
+  bombLayers[1].effects.push(fx('goldExplosion', 30, { start: at(0.3, 12.7), duration: s(2), intensity: 0.8 }));
+  bombLayers[4].effects.push(fx('goldExplosion', 30, { start: at(0.8, 15.6), duration: s(2), intensity: 0.9, sound: 'coins', soundVolume: 0.45 }));
+  bombLayers.forEach((b) => b.effects.forEach((e) => e.type === 'goldExplosion' && (e.syncToMusic = false)));
+  // only when music is added: explosions on the strong beats from the middle bomb
+  bombLayers[3].effects.push(fx('goldExplosion', 30, { start: s(1), duration: end, intensity: 0.6, syncToMusic: true }));
+
+  const sparkles = particlesLayer(p, { kind: 'sparkles', count: 45, speed: 0.9, size: 32, seed: 31 }, 'Parıltılar');
+  sparkles.particles!.seed = 31;
+
+  const amount = textLayer(
+    p,
+    { text: '100.000TL', fontSize: 150, style: 'gold', strokeColor: '#5A1500', strokeWidth: 13, extrude: true, italic: true },
+    { name: 'Bonus miktarı', y: 1190, ...from(1.1), startSound: 'riser', startSoundVolume: 0.5, shadow: true },
+  );
+  amount.effects = [
+    fx('impact', 30, { duration: s(0.6), intensity: 0.16 }),
+    fx('flash', 30, { duration: s(0.8), color: '#FFF6D0', intensity: 0.8 }),
+    fx('pulse', 30, { start: s(0.7), duration: end, speed: 0.55, intensity: 0.22 }),
+    fx('glow', 30, { start: s(0.7), duration: end, color: '#FFE27A', speed: 0.55, intensity: 0.45 }),
+    fx('beatSync', 30, { start: s(0.7), duration: end, intensity: 0.35 }),
+    ...[7.0, 12.5].map((sec) => fx('flash', 30, { start: at(1.1, sec + 0.3), duration: s(0.8), color: '#FFFFFF', intensity: 0.6 })),
+  ];
+  const fsT = textLayer(
+    p,
+    { text: '+ 450FS', fontSize: 112, style: 'gold', strokeColor: '#5A1500', strokeWidth: 11, extrude: true, italic: true },
+    { name: 'Free spin', y: 1338, ...from(1.5), startSound: 'whoosh', startSoundVolume: 0.3, shadow: true },
+  );
+  fsT.effects = [
+    fx('flyIn', 30, { direction: 'right', duration: s(0.6), intensity: 0.45 }),
+    fx('impact', 30, { start: s(0.45), duration: s(0.5), intensity: 0.2 }),
+    fx('sway', 30, { start: s(0.9), duration: end, speed: 0.5, intensity: 0.2 }),
+  ];
+  const players = textLayer(
+    p,
+    { text: 'TÜM YENİ OYUNCULARA', fontSize: 72, style: 'white', strokeColor: '#7A1E00', strokeWidth: 9, extrude: true },
+    { name: 'Hedef kitle', y: 1462, ...from(1.9), shadow: true },
+  );
+  players.effects = [fx('flyIn', 30, { direction: 'left', duration: s(0.7), intensity: 0.5 }), fx('pulse', 30, { start: s(0.7), duration: end, speed: 0.4, intensity: 0.12 })];
+
+  const btn = buttonLayer(p, 'BONUSU AL', { y: 1650, width: 760, height: 180, ...from(2.4), startSound: 'button', startSoundVolume: 0.55 });
+  btn.button = { ...btn.button!, fontSize: 88, colorTop: '#FFD45A', colorBottom: '#FF7A00' };
+  btn.effects = [
+    fx('flyIn', 30, { duration: s(0.75), intensity: 0.45 }),
+    fx('pulse', 30, { start: s(0.75), duration: at(2.4, 13.5) - s(0.75), speed: 1.1, intensity: 0.45 }),
+    fx('glow', 30, { start: s(0.75), duration: at(2.4, 13.5) - s(0.75), color: '#FFE27A', speed: 1.1, intensity: 0.5 }),
+    // final section: the button takes the stage
+    fx('flash', 30, { start: at(2.4, 13.5), duration: s(0.9), color: '#FFFFFF', intensity: 0.9, sound: 'sparkle', soundVolume: 0.4 }),
+    fx('pulse', 30, { start: at(2.4, 13.5), duration: end, speed: 1.4, intensity: 0.9 }),
+    fx('glow', 30, { start: at(2.4, 13.5), duration: end, color: '#FFFFFF', speed: 1.4, intensity: 0.9 }),
+    fx('flash', 30, { start: at(2.4, 16.0), duration: s(0.9), color: '#FFF6D0', intensity: 0.8 }),
+  ];
+
+  // camera: slow push in / pull back, small shakes on the big moments
+  const cam = cameraLayer(p);
+  cam.effects = [
+    fx('cameraZoom', 30, { start: 0, duration: s(6), zoomMode: 'in', intensity: 0.5 }),
+    fx('cameraZoom', 30, { start: s(6), duration: s(6), zoomMode: 'out', intensity: 0.5 }),
+    fx('cameraZoom', 30, { start: s(12), duration: s(6), zoomMode: 'in', intensity: 0.6 }),
+    fx('impactShake', 30, { start: s(1.15), duration: s(0.8), intensity: 0.3, syncToMusic: false }),
+    fx('impactShake', 30, { start: s(7.0), duration: s(0.9), intensity: 0.45, syncToMusic: false }),
+    fx('impactShake', 30, { start: s(12.5), duration: s(0.9), intensity: 0.45, syncToMusic: false }),
+    fx('impactShake', 30, { start: s(1), duration: end, intensity: 0.25, syncToMusic: true }),
+  ];
+
+  p.layers = [bg, frame, fruits, coins, lg, ...bombLayers, sparkles, amount, fsT, players, btn, cam];
+  return p;
+}
+
 export const TEMPLATES = [
+  { id: 'bombparty2', name: '★ Slotolog 1000X Bomb Party 2.0', desc: 'Kamera, Dance Pro, özgün sesler, müziğe hazır · 18 sn', make: bombParty2Template },
   { id: 'bombparty', name: '★ Slotolog 1000X Bomb Party', desc: '5 adet 1000X bomba, parti arka planı, meyveler, 18 sn', make: bombPartyTemplate },
   { id: 'premium', name: '★ Slotolog Premium Bonus', desc: 'Lüks altın-siyah, logo, 100X–1000X, bonus, 15 sn', make: premiumTemplate },
   { id: 'multiplier', name: 'A · Çarpan animasyonu', desc: '100X–1000X çarpanlar, 15 sn', make: multiplierTemplate },

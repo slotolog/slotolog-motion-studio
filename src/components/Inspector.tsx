@@ -1,14 +1,47 @@
 import React from 'react';
 import { useSelectedLayer, useStore } from '../store';
-import { EASING_LABELS, EFFECT_META, propAt } from '../lib/anim';
+import { EASING_LABELS, EFFECT_META, LOOPING_EFFECTS, MUSIC_EFFECTS, propAt } from '../lib/anim';
+import { SFX, SFX_KEYS } from '../lib/sfx';
+import { projectAudio } from '../lib/music';
+import { uid } from '../lib/factory';
+import { LAYOUTS } from '../store';
 import { seek } from '../lib/player';
 import { BG_PRESETS } from '../lib/factory';
-import type { AnimProp, BackgroundStyle, Direction, EasingName, EffectType, Layer, ParticleKind, TextStyle } from '../types';
+import type { AnimProp, BackgroundStyle, Direction, EasingName, EffectType, Layer, ParticleKind, SfxKey, TextStyle, ZoomMode } from '../types';
 import { ASPECT_SIZES } from '../types';
 import { TYPE_META } from './Timeline';
 import { Btn, ColorInput, NumInput, Row, Section, Select, Slider, TextInput, Toggle } from './ui';
 
 const PROP_LABELS: Record<AnimProp, string> = { x: 'X konumu', y: 'Y konumu', scale: 'Ölçek', rotation: 'Açı (°)', opacity: 'Opaklık' };
+
+const SoundSelect: React.FC<{ value?: SfxKey; volume?: number; onChange: (v: SfxKey | undefined, vol: number) => void }> = ({ value, volume = 0.7, onChange }) => (
+  <div className="flex w-full items-center gap-1">
+    <select
+      value={value ?? ''}
+      onChange={(e) => onChange((e.target.value || undefined) as SfxKey | undefined, volume)}
+      className="min-w-0 flex-1 rounded border border-white/10 bg-[#121212] px-1 py-1 text-[11px]"
+    >
+      <option value="">Ses yok</option>
+      {SFX_KEYS.map((k) => (
+        <option key={k} value={k}>
+          🔊 {SFX[k].name}
+        </option>
+      ))}
+    </select>
+    {value && (
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={volume}
+        title={`Ses düzeyi ${Math.round(volume * 100)}%`}
+        onChange={(e) => onChange(value, parseFloat(e.target.value))}
+        className="w-14 accent-[#FF8E16]"
+      />
+    )}
+  </div>
+);
 
 const KeyBtn: React.FC<{ layer: Layer; prop: AnimProp }> = ({ layer, prop }) => {
   const frame = useStore((s) => s.frame);
@@ -124,7 +157,26 @@ const EffectsEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
                 />
               </Row>
             )}
-            {['bounce', 'dance', 'sway', 'spin', 'pulse', 'glow', 'beat', 'float', 'shine', 'shake'].includes(e.type) && (
+            {e.type === 'cameraZoom' && (
+              <Row label="Yön">
+                <Select<ZoomMode>
+                  value={e.zoomMode ?? 'inout'}
+                  onChange={(v) => st.updateEffect(layer.id, e.id, { zoomMode: v })}
+                  options={[
+                    { value: 'in', label: 'Yakınlaş' },
+                    { value: 'out', label: 'Uzaklaş' },
+                    { value: 'inout', label: 'Yakınlaş ↔ uzaklaş' },
+                  ]}
+                />
+              </Row>
+            )}
+            {MUSIC_EFFECTS.includes(e.type) && (
+              <Toggle value={e.syncToMusic !== false} onChange={(v) => st.updateEffect(layer.id, e.id, { syncToMusic: v })} label="Müzikle senkron (müzik varsa)" />
+            )}
+            <Row label="Ses efekti">
+              <SoundSelect value={e.sound} volume={e.soundVolume} onChange={(v, vol) => st.updateEffect(layer.id, e.id, { sound: v, soundVolume: vol })} />
+            </Row>
+            {LOOPING_EFFECTS.includes(e.type) && (
               <Row label="Faz (sn)">
                 <NumInput value={e.phase ?? 0} step={0.1} digits={2} onChange={(v) => st.updateEffect(layer.id, e.id, { phase: v })} />
               </Row>
@@ -137,6 +189,11 @@ const EffectsEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
             {e.type === 'beat' && (
               <Row label="BPM">
                 <NumInput value={e.bpm ?? 120} min={30} max={240} onChange={(v) => st.updateEffect(layer.id, e.id, { bpm: v })} />
+              </Row>
+            )}
+            {e.type === 'beatSync' && (
+              <Row label="Müzik yoksa BPM">
+                <NumInput value={e.bpm ?? 0} min={0} max={240} onChange={(v) => st.updateEffect(layer.id, e.id, { bpm: v > 0 ? v : undefined })} />
               </Row>
             )}
           </div>
@@ -155,6 +212,71 @@ const EffectsEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
         ))}
       </select>
     </div>
+  );
+};
+
+const AudioSettings: React.FC = () => {
+  const p = useStore((s) => s.project);
+  const frame = useStore((s) => s.frame);
+  const st = useStore.getState();
+  const a = projectAudio(p);
+  const musicLayers = p.layers.filter((l) => l.type === 'audio' && (l.channel ?? 'music') === 'music');
+  const analysed = musicLayers.map((l) => p.assets.find((x) => x.id === l.assetId)).filter((x) => x?.analysis);
+  const sec = frame / p.fps;
+  return (
+    <Section title="Ses ve müzik">
+      <Row label="Müzik kanalı">
+        <Slider value={a.musicVolume} min={0} max={1} onChange={(v) => st.setAudio({ musicVolume: v })} />
+      </Row>
+      <Row label="Efekt kanalı">
+        <Slider value={a.sfxVolume} min={0} max={1} onChange={(v) => st.setAudio({ sfxVolume: v })} />
+      </Row>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <Toggle value={a.musicMuted} onChange={(v) => st.setAudio({ musicMuted: v })} label="Müziği kapat" />
+        <Toggle value={a.sfxMuted} onChange={(v) => st.setAudio({ sfxMuted: v })} label="Efektleri kapat" />
+      </div>
+      <div className="mt-2 border-t border-white/5 pt-2">
+        <Toggle value={a.syncEnabled} onChange={(v) => st.setAudio({ syncEnabled: v })} label="Animasyonları müzikle senkronla" />
+        <p className="mt-1 text-[11px] text-neutral-500" data-testid="music-status">
+          {musicLayers.length === 0
+            ? 'Müzik yok. Medya’dan MP3/WAV yükleyip “Ekle” ile ekle; ritim otomatik analiz edilir.'
+            : analysed.length
+              ? `Algılanan tempo: ${analysed.map((x) => `${x!.analysis!.bpm} BPM (${x!.analysis!.beats.length} vuruş)`).join(', ')}`
+              : 'Ritim analiz ediliyor veya henüz analiz edilmedi (ses katmanını seçip “Ritmi analiz et”).'}
+        </p>
+      </div>
+      <div className="mt-2 border-t border-white/5 pt-2">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-neutral-300">Nakarat / güçlü bölümler (elle)</span>
+          <Btn
+            small
+            onClick={() =>
+              st.setAudio({
+                sections: [...a.sections, { id: uid(), label: 'Nakarat', start: Math.round(sec * 10) / 10, end: Math.round(Math.min(p.durationInFrames / p.fps, sec + 4) * 10) / 10, boost: 1.6 }],
+              })
+            }
+          >
+            + Oynatma çizgisinden
+          </Btn>
+        </div>
+        <p className="mb-1 text-[10px] text-neutral-500">Bu aralıklarda müzikle senkron efektler “Güç” katı kadar güçlenir. Nakarat otomatik algılanmaz.</p>
+        {a.sections.map((s) => {
+          const upd = (patch: Partial<typeof s>) => st.setAudio({ sections: a.sections.map((x) => (x.id === s.id ? { ...x, ...patch } : x)) });
+          return (
+            <div key={s.id} className="mb-1 grid grid-cols-[1fr_52px_52px_44px_16px] items-center gap-1">
+              <input value={s.label} onChange={(e) => upd({ label: e.target.value })} className="min-w-0 rounded bg-[#121212] px-1 py-0.5 text-[11px]" />
+              <NumInput value={s.start} step={0.1} digits={1} min={0} onChange={(v) => upd({ start: v })} />
+              <NumInput value={s.end} step={0.1} digits={1} min={0} onChange={(v) => upd({ end: v })} />
+              <NumInput value={s.boost} step={0.1} digits={1} min={1} max={3} onChange={(v) => upd({ boost: v })} />
+              <button className="text-[11px] text-neutral-500 hover:text-red-400" onClick={() => st.setAudio({ sections: a.sections.filter((x) => x.id !== s.id) })}>
+                ✕
+              </button>
+            </div>
+          );
+        })}
+        {a.sections.length > 0 && <p className="text-[10px] text-neutral-500">ad · başlangıç sn · bitiş sn · güç</p>}
+      </div>
+    </Section>
   );
 };
 
@@ -180,6 +302,7 @@ const ProjectSettings: React.FC = () => {
           <span className="text-neutral-200">{p.fps}</span>
         </Row>
       </Section>
+      <AudioSettings />
       <div className="px-3 py-4 text-xs leading-relaxed text-neutral-500">
         Ayarlarını görmek için önizlemede veya zaman çizelgesinde bir katmana tıkla.
         <br />
@@ -191,6 +314,55 @@ const ProjectSettings: React.FC = () => {
   );
 };
 
+const MusicLayerSettings: React.FC<{ layer: Layer }> = ({ layer }) => {
+  const asset = useStore((s) => s.project.assets.find((a) => a.id === layer.assetId));
+  const analyzing = useStore((s) => s.analyzing.includes(layer.assetId ?? ''));
+  const st = useStore.getState();
+  const up = (patch: Partial<Layer>) => st.updateLayer(layer.id, patch);
+  return (
+    <Section title="Müzik düzenleme">
+      <Row label="Kanal">
+        <Select<'music' | 'sfx'>
+          value={layer.channel ?? 'music'}
+          onChange={(v) => up({ channel: v })}
+          options={[
+            { value: 'music', label: 'Müzik' },
+            { value: 'sfx', label: 'Ses efekti' },
+          ]}
+        />
+      </Row>
+      <Row label="Dosyadan atla (sn)">
+        <NumInput value={layer.trimStart ?? 0} step={0.1} digits={2} min={0} onChange={(v) => up({ trimStart: v })} />
+      </Row>
+      <Row label="Fade-in (sn)">
+        <NumInput value={layer.fadeIn ?? 0} step={0.1} digits={1} min={0} onChange={(v) => up({ fadeIn: v })} />
+      </Row>
+      <Row label="Fade-out (sn)">
+        <NumInput value={layer.fadeOut ?? 0} step={0.1} digits={1} min={0} onChange={(v) => up({ fadeOut: v })} />
+      </Row>
+      <p className="text-[10px] text-neutral-500">Başlangıç/süre = “Zamanlama”. Zaman çizelgesinde sol kenarı sürüklemek şarkının başını keser.</p>
+      {(layer.channel ?? 'music') === 'music' && (
+        <div className="rounded bg-[#141414] p-2 text-[11px] text-neutral-300">
+          {analyzing ? (
+            'Ritim analiz ediliyor…'
+          ) : asset?.analysis ? (
+            <>
+              <b className="text-[#FF8E16]">{asset.analysis.bpm} BPM</b> · {asset.analysis.beats.length} vuruş algılandı
+            </>
+          ) : (
+            'Henüz analiz edilmedi.'
+          )}
+          {asset && !asset.src && (
+            <Btn small className="ml-2" onClick={() => st.analyzeAsset(asset.id)} disabled={analyzing}>
+              Ritmi analiz et
+            </Btn>
+          )}
+        </div>
+      )}
+    </Section>
+  );
+};
+
 export const Inspector: React.FC = () => {
   const layer = useSelectedLayer();
   const fps = useStore((s) => s.project.fps);
@@ -198,7 +370,7 @@ export const Inspector: React.FC = () => {
   if (!layer) return <ProjectSettings />;
   const st = useStore.getState();
   const up = (patch: Partial<Layer>) => st.updateLayer(layer.id, patch);
-  const positional = !['background', 'particles', 'audio'].includes(layer.type);
+  const positional = !['background', 'particles', 'audio', 'camera'].includes(layer.type);
   const visualAssets = assets.filter((a) => a.kind !== 'audio');
 
   return (
@@ -257,7 +429,53 @@ export const Inspector: React.FC = () => {
           <PropField layer={layer} prop="opacity" step={0.05} digits={2} min={0} max={1} />
         </Section>
       )}
-      {!positional && layer.type !== 'audio' && (
+      {positional && (
+        <Section title="Derinlik ve ses">
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <Toggle value={!!layer.shadow} onChange={(v) => up({ shadow: v })} label="Yumuşak gölge" />
+            <Toggle value={!!layer.motionBlur} onChange={(v) => up({ motionBlur: v })} label="Hareket bulanıklığı" />
+          </div>
+          <Row label="Kamera derinliği">
+            <Slider value={layer.depth ?? 1} min={0} max={1.5} onChange={(v) => up({ depth: v })} />
+          </Row>
+          <Row label="Giriş sesi">
+            <SoundSelect value={layer.startSound} volume={layer.startSoundVolume} onChange={(v, vol) => up({ startSound: v, startSoundVolume: vol })} />
+          </Row>
+        </Section>
+      )}
+      {positional && (
+        <Section title="Çoklu nesne düzeni">
+          <p className="text-[11px] text-neutral-500">Bu katmanı çoğaltıp düzenler. Her kopya ayrı katmandır; efektler farklı zamanlamayla kopyalanır.</p>
+          <div className="grid grid-cols-2 gap-1">
+            {LAYOUTS.map((lo) => (
+              <Btn key={lo.id} small onClick={() => st.arrangeLayout(layer.id, lo.id)} data-testid={`layout-${lo.id}`}>
+                {lo.label}
+              </Btn>
+            ))}
+          </div>
+        </Section>
+      )}
+      {layer.type === 'camera' && (
+        <Section title="Kamera">
+          <p className="text-[11px] text-neutral-500">Kamera görünmez; efektleri ve keyframe’leri tüm sahneyi hareket ettirir. Katmanların “Kamera derinliği” paralaks oluşturur.</p>
+          <PropField layer={layer} prop="scale" step={0.01} digits={2} min={0.5} />
+          <PropField layer={layer} prop="x" />
+          <PropField layer={layer} prop="y" />
+          <PropField layer={layer} prop="rotation" step={0.5} digits={1} />
+          <EffectsEditor layer={layer} />
+        </Section>
+      )}
+      {(layer.type === 'background' || layer.type === 'particles') && (
+        <Section title="Derinlik">
+          <Row label="Kamera derinliği">
+            <Slider value={layer.depth ?? (layer.type === 'background' ? 0.5 : 0.85)} min={0} max={1.5} onChange={(v) => up({ depth: v })} />
+          </Row>
+          <Row label="Giriş sesi">
+            <SoundSelect value={layer.startSound} volume={layer.startSoundVolume} onChange={(v, vol) => up({ startSound: v, startSoundVolume: vol })} />
+          </Row>
+        </Section>
+      )}
+      {!positional && layer.type !== 'audio' && layer.type !== 'camera' && (
         <Section title="Görünüm">
           <PropField layer={layer} prop="opacity" step={0.05} digits={2} min={0} max={1} />
         </Section>
@@ -411,6 +629,7 @@ export const Inspector: React.FC = () => {
           </Row>
         </Section>
       )}
+      {layer.type === 'audio' && <MusicLayerSettings layer={layer} />}
       {(layer.type === 'video' || layer.type === 'audio') && (
         <Section title="Ses">
           {layer.type === 'video' && <Toggle value={!!layer.loop} onChange={(v) => up({ loop: v })} label="Döngü (video bitince başa sar)" />}

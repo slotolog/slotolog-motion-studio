@@ -4,10 +4,21 @@ import { propAt } from './lib/anim';
 import { getAssetBlob, saveAssetBlob, saveProject } from './lib/storage';
 import { multiplierTemplate } from './lib/templates';
 import { BRAND_ASSETS, brandUrl, type BrandKey } from './lib/brand';
-import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project } from './types';
+import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project, ProjectAudio, SfxKey } from './types';
+import { analyzeAudio } from './lib/beats';
+import { projectAudio } from './lib/music';
+import { SFX } from './lib/sfx';
+import { LOOPING_EFFECTS } from './lib/anim';
 import { ASPECT_SIZES } from './types';
 
 type Updater = (p: Project) => Project;
+export type LayoutKind = '2+3' | '3+2' | '2x2' | '1x3';
+export const LAYOUTS: { id: LayoutKind; label: string; rows: number[] }[] = [
+  { id: '2+3', label: '2 üstte · 3 altta', rows: [2, 3] },
+  { id: '3+2', label: '3 üstte · 2 altta', rows: [3, 2] },
+  { id: '2x2', label: '2 × 2', rows: [2, 2] },
+  { id: '1x3', label: 'Yan yana 3', rows: [3] },
+];
 
 interface State {
   project: Project;
@@ -43,6 +54,11 @@ interface State {
   addAssetFromFile: (file: File) => Promise<Asset>;
   addAssetLayer: (assetId: string, at?: { x: number; y: number }) => void;
   addBrandAsset: (key: BrandKey) => string;
+  addSfxLayer: (key: SfxKey) => void;
+  analyzing: string[];
+  analyzeAsset: (assetId: string) => Promise<void>;
+  setAudio: (patch: Partial<ProjectAudio>) => void;
+  arrangeLayout: (layerId: string, layout: LayoutKind) => void;
   applyAssetToLayer: (layerId: string, assetId: string) => void;
   removeAsset: (assetId: string) => void;
 
@@ -125,6 +141,7 @@ export const useStore = create<State>((set, get) => {
     past: [],
     future: [],
     saveState: 'saved',
+    analyzing: [],
 
     loadIntoEditor: async (p) => {
       Object.values(get().assetUrls).forEach((u) => URL.revokeObjectURL(u));
@@ -255,6 +272,8 @@ export const useStore = create<State>((set, get) => {
       const asset: Asset = { id, name: file.name, kind, mime: file.type, ...meta };
       set({ assetUrls: { ...get().assetUrls, [id]: url } });
       commit((p) => ({ ...p, assets: [...p.assets, asset] }));
+      // music: detect tempo and beats in the background
+      if (kind === 'audio') void get().analyzeAsset(id);
       return asset;
     },
     addBrandAsset: (key) => {
@@ -262,6 +281,82 @@ export const useStore = create<State>((set, get) => {
       set({ assetUrls: { ...get().assetUrls, [a.id]: brandUrl(a.src) } });
       if (!get().project.assets.some((x) => x.id === a.id)) commit((p) => ({ ...p, assets: [...p.assets, { ...a }] }));
       return a.id;
+    },
+    analyzeAsset: async (assetId) => {
+      const url = get().assetUrls[assetId];
+      if (!url || get().analyzing.includes(assetId)) return;
+      set({ analyzing: [...get().analyzing, assetId] });
+      try {
+        const blob = await (await fetch(url)).blob();
+        const analysis = await analyzeAudio(blob);
+        commit((p) => ({ ...p, assets: p.assets.map((a) => (a.id === assetId ? { ...a, analysis } : a)) }), false);
+      } catch (e) {
+        console.warn('Ritim analizi başarısız', e);
+      } finally {
+        set({ analyzing: get().analyzing.filter((x) => x !== assetId) });
+      }
+    },
+    setAudio: (patch) => commit((p) => ({ ...p, audio: { ...projectAudio(p), ...patch } })),
+    addSfxLayer: (key) => {
+      const { project, frame } = get();
+      const id = `sfx-${key}`;
+      const meta = SFX[key];
+      if (!project.assets.some((a) => a.id === id)) {
+        commit((p) => ({ ...p, assets: [...p.assets, { id, name: meta.name, kind: 'audio', mime: 'audio/wav', src: meta.src, duration: meta.duration }] }));
+        set({ assetUrls: { ...get().assetUrls, [id]: brandUrl(meta.src) } });
+      }
+      const start = Math.min(frame, project.durationInFrames - 1);
+      get().addLayer(
+        baseLayer(
+          { type: 'audio', name: `Ses: ${meta.name}`, assetId: id, start, duration: Math.ceil(meta.duration * project.fps) + 2, channel: 'sfx', volume: 0.8 },
+          project,
+        ),
+      );
+    },
+    arrangeLayout: (layerId, layout) => {
+      const { project } = get();
+      const l = project.layers.find((x) => x.id === layerId);
+      const def = LAYOUTS.find((x) => x.id === layout);
+      if (!l || !def) return;
+      const { width: W } = ASPECT_SIZES[project.aspect];
+      const ratio = l.height / l.width;
+      const maxPerRow = Math.max(...def.rows);
+      const w = Math.min(l.width, (W * 0.94) / maxPerRow - 16);
+      const h = w * ratio;
+      const gapY = h * 0.08;
+      const totalH = def.rows.length * h + (def.rows.length - 1) * gapY;
+      const placed: { x: number; y: number; w: number; h: number }[] = [];
+      def.rows.forEach((n, r) => {
+        // rows with fewer items use slightly bigger objects, like 2 over 3
+        const rw = n < maxPerRow ? Math.min(w * 1.15, (W * 0.94) / n - 16) : w;
+        const rh = rw * ratio;
+        const y = l.y - totalH / 2 + r * (h + gapY) + h / 2;
+        const span = W * 0.94;
+        for (let i = 0; i < n; i++) placed.push({ x: W / 2 - span / 2 + (span / n) * (i + 0.5), y, w: rw, h: rh });
+      });
+      const copies: Layer[] = placed.map((pl, i) => ({
+        ...structuredClone(l),
+        id: i === 0 ? l.id : uid(),
+        name: `${l.name.replace(/ \d+$/, '')} ${i + 1}`,
+        x: Math.round(pl.x),
+        y: Math.round(pl.y),
+        width: Math.round(pl.w),
+        height: Math.round(pl.h),
+        keyframes: { ...l.keyframes, x: undefined, y: undefined },
+        // independent timing so the copies do not move in sync
+        effects: l.effects.map((e) => ({
+          ...e,
+          id: i === 0 ? e.id : uid(),
+          phase: LOOPING_EFFECTS.includes(e.type) ? Math.round(((e.phase ?? 0) + i * 0.73) * 100) / 100 : e.phase,
+          speed: LOOPING_EFFECTS.includes(e.type) ? Math.round(e.speed * (1 + ((i % 3) - 1) * 0.08) * 100) / 100 : e.speed,
+        })),
+      }));
+      commit((p) => {
+        const idx = p.layers.findIndex((x) => x.id === layerId);
+        const layers = [...p.layers];
+        layers.splice(idx, 1, ...copies);
+        return { ...p, layers };
+      });
     },
     addAssetLayer: (assetId, at) => {
       const { project, frame } = get();
@@ -287,6 +382,7 @@ export const useStore = create<State>((set, get) => {
           objectFit: a.kind === 'video' ? 'cover' : 'contain',
           volume: 1,
           muted: false,
+          ...(a.kind === 'audio' ? { channel: 'music' as const, fadeIn: 0, fadeOut: 0, trimStart: 0 } : {}),
         },
         project,
       );

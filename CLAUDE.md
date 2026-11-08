@@ -9,3 +9,6 @@
   3. Actions durumunu `https://api.github.com/repos/slotolog/slotolog-motion-studio/actions/runs` ile kontrol et, canlı adresi tarayıcı aracıyla doğrula (çalışma ortamının shell'i github.io'ya erişemez).
 - Ücretli servis (Remotion Lambda vb.) kullanıcı onayı olmadan kurulmaz. Repo herkese açık: şifre/anahtar ekleme.
 - Remotion paket sürümleri birebir aynı kalmalı (şu an 4.0.541).
+- Ses efektleri `tools/make_sfx.py` ile üretilir (özgün). Yeni ses gerekirse aynı yöntemle sentezle; telifli kayıt ekleme.
+- Test müziği `tools/make_test_music.py` ile üretilir; `tests/e2e/music.py` BPM/vuruş doğruluğunu ve önizleme↔MP4 / ses senkronunu ölçer.
+- `window.__slotolog` testler için store erişimidir.

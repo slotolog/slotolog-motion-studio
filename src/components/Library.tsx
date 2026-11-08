@@ -6,6 +6,7 @@ import {
   PARTICLE_PRESETS,
   backgroundLayer,
   baseLayer,
+  cameraLayer,
   buttonLayer,
   multiplierLayer,
   particlesLayer,
@@ -13,6 +14,7 @@ import {
 } from '../lib/factory';
 import { TEMPLATES } from '../lib/templates';
 import { BRAND_ASSETS, brandUrl, type BrandKey } from '../lib/brand';
+import { SFX, SFX_KEYS, sfxUrl } from '../lib/sfx';
 import type { BackgroundSettings, EffectType } from '../types';
 import { Btn } from './ui';
 
@@ -116,6 +118,27 @@ const MediaTab: React.FC = () => {
           })}
         </div>
       </div>
+      <div data-testid="sfx-library">
+        <h4 className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-[#FF8E16]">Slotolog ses efektleri (özgün)</h4>
+        <div className="space-y-1">
+          {SFX_KEYS.map((k) => (
+            <div key={k} className="flex items-center gap-1.5 rounded-md border border-white/10 bg-[#141414] px-1.5 py-1">
+              <button
+                title="Dinle"
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-[#2b2b2b] text-[10px] hover:bg-[#FF8E16] hover:text-black"
+                onClick={() => new Audio(sfxUrl(k)).play().catch(() => undefined)}
+              >
+                ▶
+              </button>
+              <span className="min-w-0 flex-1 truncate text-[11px] text-neutral-300">{SFX[k].name}</span>
+              <Btn small onClick={() => st.addSfxLayer(k)}>
+                Ekle
+              </Btn>
+            </div>
+          ))}
+        </div>
+        <p className="mt-1 text-[10px] text-neutral-500">Ses, efektlere ve katman girişlerine sağ panelden de bağlanabilir.</p>
+      </div>
       <h4 className="pt-1 text-[11px] font-bold uppercase tracking-wider text-neutral-400">Yüklediklerim</h4>
       {assets.filter((a) => !a.src).length === 0 && <p className="text-center text-[11px] text-neutral-500">Henüz medya yok. Logo, oyun ikonu, video veya müzik yükle.</p>}
       <div className="grid grid-cols-2 gap-2">
@@ -199,6 +222,9 @@ const ElementsTab: React.FC = () => {
           <Btn onClick={() => add(textLayer(project, { text: 'YENİ METİN', style: 'white' }))}>T Beyaz metin</Btn>
           <Btn onClick={() => add(textLayer(project, { text: '100.000TL', style: 'gold', italic: true, fontSize: 150 }))}>T Altın metin</Btn>
           <Btn onClick={() => add(buttonLayer(project, 'BONUSU AL'))}>▭ Buton</Btn>
+          <Btn onClick={() => add(cameraLayer(project))} title="Tüm sahneyi yakınlaştırma/sarsma">
+            🎥 Kamera
+          </Btn>
           <Btn
             onClick={() =>
               add(

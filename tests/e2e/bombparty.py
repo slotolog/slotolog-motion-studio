@@ -22,7 +22,7 @@ with sync_playwright() as p:
     # select a bomb from the timeline and replace the image is possible
     pg.locator('text=1000X bomba 3').first.click(); time.sleep(0.3)
     assert pg.locator('[data-testid=inspector] input').first.input_value() == '1000X bomba 3'
-    assert pg.locator('[data-testid=inspector] >> text=Işık yansıması').count() >= 1
+    assert pg.locator('[data-testid=inspector] >> text=Light Sweep').count() >= 1
     assert not errs, errs
     print('BOMB PARTY OK')
     b.close()

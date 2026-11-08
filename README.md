@@ -71,11 +71,34 @@ Bir katman seç → **Efektler** sekmesi veya sağ panelde “+ Efekt ekle”. E
 | Süzülme | Yavaşça yukarı aşağı süzülür |
 | Işık yansıması | PNG’nin üstünden (sadece görselin kendisinde) ışık bandı geçer |
 
+| Dance Pro | Zıplayarak sağa sola dans; müzik varsa her vuruşta bir adım (tempo hızlanınca hızlanır) |
+| Bounce Pro | Yerçekimli zıplama, yere değerken ezilme |
+| Smooth Rotation | Yumuşak hızlanıp yavaşlayan açılı dönüş |
+| Group Dance | Ekran merkezine yaklaşıp uzaklaşır, köşedekiler çapraz akar |
+| Camera Zoom / Impact Shake | Kamera katmanında tüm sahne yakınlaşır / sarsılır; normal katmanda sadece o nesne |
+| Golden Explosion | Nesneden altın patlaması; müzikte güçlü vuruşlarda tekrarlayabilir |
+| Music Beat Sync | Müzikteki her vuruşta büyür ve parlar (müzik yoksa durur) |
+
+Her efekte **ses efekti** bağlanabilir (efekt başladığında çalar). Katmanlara **giriş sesi**, **yumuşak gölge**, **hareket bulanıklığı** ve **kamera derinliği** (paralaks) verilebilir.
+
 Tekrarlayan efektlerde **Faz (sn)** ayarı, aynı efektli katmanların birbirinden farklı zamanlarda hareket etmesini sağlar.
 | Altın yağmuru / patlaması, Parıltılar, Konfeti | Ayrı parçacık katmanı olarak eklenir |
 
 ### Keyframe
 Sağ panelde bir özelliğin yanındaki **◇** → o karede keyframe oluşur (◆). Oynatma çizgisini taşı, değeri değiştir (veya önizlemede sürükle) → yeni keyframe otomatik eklenir. Keyframe listesinden geçiş tipini (Yumuşak, Esnek, Doğrusal…) seç.
+
+### Kamera
+Öğeler → **🎥 Kamera** ekler. Kamera görünmezdir; üzerindeki Camera Zoom / Impact Shake efektleri ve ölçek/konum keyframe’leri tüm sahneyi hareket ettirir. Arka plan ve parçacıklar daha az hareket eder (derinlik).
+
+### Çoklu nesne düzeni
+Bir görseli seç → sağ panel **Çoklu nesne düzeni** → “2 üstte · 3 altta” vb. Görsel çoğaltılır, simetrik dizilir; her kopya ayrı katmandır ve efektleri farklı zamanlamayla çalışır.
+
+### Müzik ve ses
+- **Medya → Slotolog ses efektleri:** 6 özgün ses (whoosh, bounce, altın, sparkle, yükseliş, buton). ▶ ile dinle, “Ekle” ile zaman çizelgesine koy. Sesler `tools/make_sfx.py` ile matematiksel olarak üretildi; harici kayıt yok, ticari kullanım serbest.
+- **Kendi müziğin:** MP3/WAV/M4A yükle → “Ekle”. Müzik katmanında: başlangıç/süre, dosyadan atla (kırpma), fade-in/out, ses düzeyi, kanal (Müzik / Ses efekti). Zaman çizelgesinde sol kenarı sürüklemek şarkının başını keser.
+- **Kanallar:** Proje ayarlarında (boşluğa tıkla) Müzik ve Efekt kanallarının ses düzeyi ayrı ayarlanır / kapatılır. MP4’te hepsi birlikte karıştırılır.
+- **Otomatik ritim:** Yüklenen müziğin temposu (BPM) ve vuruşları tarayıcıda otomatik bulunur; zaman çizelgesinin cetvelinde turuncu çizgiler olarak görünür (uzun çizgi = güçlü vuruş). Dance Pro, Group Dance, Music Beat Sync, Golden Explosion ve Impact Shake (müzikle senkron açıksa) vuruşlara uyar. “Animasyonları müzikle senkronla” ile kapatılabilir.
+- **Nakarat:** Otomatik algılanmaz. Proje ayarlarında “+ Oynatma çizgisinden” ile nakarat/güçlü bölüm işaretle; bu aralıkta müzik efektleri “güç” katı kadar güçlenir.
 
 ### Hareketli arka plan
 **Arka plan** sekmesi: Sarı-Turuncu Işınlar, Ateş Turuncusu, Akan Gradyan, Koyu Casino. Sağ panelden stil, renkler (#FF8E16, #1E1E1E…), huzme sayısı, hız ve ışık noktaları değişir.
@@ -106,6 +129,7 @@ Remotion; bireyler ve **en fazla 3 çalışanlı** şirketler için ücretsizdir
 
 ## 5. Şablonlar
 
+- **★ Slotolog 1000X Bomb Party 2.0 (18 sn):** kamera yakınlaşma/sarsıntı, 5 bağımsız bomba (Dance Pro, Group Dance, Smooth Rotation, Floating, Light Sweep, gölge, hareket bulanıklığı), Golden Explosion’lar, güçlü yazı girişleri, final bölümünde parlayan buton, özgün ses efektleri. Müzik eklenirse bombalar vuruşlara göre dans eder ve büyür.
 - **★ Slotolog 1000X Bomb Party (18 sn):** parti arka planı (turuncu-altın-pembe, dönen ışıklar, parlamalar), üst/alt meyve çerçevesi, uçuşan meyveler ve altınlar, logo rozeti, üstte 2 + altta 3 adet 1000X bomba (her biri ayrı katman: sallanma, süzülme, büyüme-küçülme, ışık yansıması — farklı fazlarla), 100.000TL + 450FS, TÜM YENİ OYUNCULARA, BONUSU AL.
 - **★ Slotolog Premium Bonus (15 sn):** lüks altın-siyah arka plan, logo, 100X–750X + 1000X görseli, bonus yazıları, buton.
 - **A · Çarpan animasyonu (15 sn):** sarı-turuncu ışın arka plan, parıltı + altın yağmuru, logo, başlık, 100X → 1000X sırayla çarparak gelir, dans eder ve parlar; 1000X’te altın patlaması; “HEMEN OYNA” butonu.

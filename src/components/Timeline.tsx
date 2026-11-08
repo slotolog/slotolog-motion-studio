@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { formatTime, seek, togglePlay } from '../lib/player';
 import { EFFECT_META } from '../lib/anim';
 import { ANIM_PROPS, type Layer, type LayerType } from '../types';
+import { buildMusicSync } from '../lib/music';
 import { NumInput } from './ui';
 
 export const TYPE_META: Record<LayerType, { icon: string; color: string; label: string }> = {
@@ -15,12 +16,13 @@ export const TYPE_META: Record<LayerType, { icon: string; color: string; label: 
   multiplier: { icon: 'X', color: '#ea580c', label: 'Çarpan' },
   button: { icon: '▭', color: '#0891b2', label: 'Buton' },
   placeholder: { icon: '▢', color: '#525252', label: 'Yer tutucu' },
+  camera: { icon: '🎥', color: '#0f766e', label: 'Kamera' },
 };
 
 const LABEL_W = 210;
 const ROW_H = 34;
 
-type TDrag = { id: string; mode: 'move' | 'left' | 'right'; x0: number; start0: number; dur0: number };
+type TDrag = { id: string; mode: 'move' | 'left' | 'right'; x0: number; start0: number; dur0: number; trim0: number; media: boolean };
 
 export const Timeline: React.FC = () => {
   const project = useStore((s) => s.project);
@@ -35,6 +37,8 @@ export const Timeline: React.FC = () => {
   const total = project.durationInFrames;
   const width = total * ppf + 60;
   const rows = [...project.layers].reverse();
+  const music = React.useMemo(() => buildMusicSync(project), [project]);
+  const sections = project.audio?.sections ?? [];
 
   const frameFromEvent = (e: { clientX: number }) => {
     const r = trackRef.current!.getBoundingClientRect();
@@ -55,7 +59,10 @@ export const Timeline: React.FC = () => {
       else if (d.mode === 'right') st.updateLayer(d.id, { duration: Math.max(1, d.dur0 + df) }, false);
       else {
         const ns = Math.max(0, Math.min(d.start0 + d.dur0 - 1, d.start0 + df));
-        st.updateLayer(d.id, { start: ns, duration: d.dur0 - (ns - d.start0) }, false);
+        const patch: Partial<Layer> = { start: ns, duration: d.dur0 - (ns - d.start0) };
+        // trimming the left edge of a song / video also skips that part of the file
+        if (d.media) patch.trimStart = Math.max(0, d.trim0 + (ns - d.start0) / fps);
+        st.updateLayer(d.id, patch, false);
       }
     };
     const up = () => {
@@ -75,7 +82,7 @@ export const Timeline: React.FC = () => {
     useStore.getState().select(l.id);
     if (l.locked) return;
     useStore.getState().checkpoint();
-    drag.current = { id: l.id, mode, x0: e.clientX, start0: l.start, dur0: l.duration };
+    drag.current = { id: l.id, mode, x0: e.clientX, start0: l.start, dur0: l.duration, trim0: l.trimStart ?? 0, media: l.type === 'audio' || l.type === 'video' };
   };
 
   const seconds = Math.ceil(total / fps);
@@ -126,6 +133,24 @@ export const Timeline: React.FC = () => {
                 seek(frameFromEvent(e));
               }}
             >
+              {sections.map((sec) => (
+                <div
+                  key={sec.id}
+                  title={`${sec.label} (×${sec.boost})`}
+                  className="pointer-events-none absolute top-0 h-full bg-pink-500/25 text-[9px] leading-3 text-pink-200"
+                  style={{ left: sec.start * fps * ppf, width: Math.max(2, (sec.end - sec.start) * fps * ppf) }}
+                >
+                  {sec.label}
+                </div>
+              ))}
+              {music?.beats.map((b, i) => (
+                <div
+                  key={i}
+                  data-testid="beat-marker"
+                  className={`pointer-events-none absolute bottom-0 w-px ${music.strong.includes(b) ? 'h-3 bg-[#FF8E16]' : 'h-1.5 bg-[#FF8E16]/60'}`}
+                  style={{ left: b * fps * ppf }}
+                />
+              ))}
               {Array.from({ length: seconds + 1 }, (_, i) => i)
                 .filter((i) => i % tickEvery === 0)
                 .map((i) => (

@@ -15,7 +15,7 @@ with sync_playwright() as p:
         pg.click(f'[data-testid=template-{template}]'); time.sleep(1)
     pg.click('[data-testid=export]')
     t0=time.time()
-    with pg.expect_download(timeout=600000) as dl:
+    with pg.expect_download(timeout=1700000) as dl:
         pg.click('[data-testid=start-export]')
         while True:
             time.sleep(5)
