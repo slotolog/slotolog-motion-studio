@@ -344,7 +344,7 @@ export function bombParty2Template(): Project {
   lg.shadow = true;
   lg.depth = 0.6;
   lg.effects = [
-    fx('flyIn', 30, { direction: 'top', duration: s(0.7), intensity: 0.45, sound: 'whoosh', soundVolume: 0.35 }),
+    fx('flyIn', 30, { direction: 'top', duration: s(0.7), intensity: 0.45 }),
     fx('float', 30, { start: s(0.7), duration: end, speed: 0.6, intensity: 0.3 }),
     ...[3.0, 9.0, 16.4].map((sec) => fx('shine', 30, { start: s(sec), duration: s(1.3), speed: 1, intensity: 0.8, sound: 'sparkle', soundVolume: 0.3 })),
   ];
@@ -364,7 +364,8 @@ export function bombParty2Template(): Project {
     const ph = [0, 0.55, 0.25, 0.8, 0.4][i];
     const live = s(0.7);
     l.effects = [
-      fx('flyIn', 30, { direction: dir, duration: s(0.7), intensity: 0.5, ...(i % 2 === 0 ? { sound: 'whoosh' as const, soundVolume: 0.3 } : {}) }),
+      // one whoosh per row (bomb 1 leads the top row, bomb 4 the bottom row) so the sounds do not mask each other
+      fx('flyIn', 30, { direction: dir, duration: s(0.7), intensity: 0.5, ...(i === 0 || i === 3 ? { sound: 'whoosh' as const, soundVolume: i === 0 ? 0.35 : 0.32 } : {}) }),
       fx('flash', 30, { start: s(0.45), duration: s(0.6), intensity: 0.6, color: '#FFF6D0' }),
       fx('dancePro', 30, { start: live, duration: end, speed: [0.85, 0.95, 0.9, 1.0, 0.8][i], intensity: 0.5, phase: ph }),
       fx('groupDance', 30, { start: live, duration: end, speed: [0.8, 0.75, 0.85, 0.7, 0.9][i], intensity: 0.45, phase: ph * 3 }),
@@ -410,7 +411,7 @@ export function bombParty2Template(): Project {
   const fsT = textLayer(
     p,
     { text: '+ 450FS', fontSize: 112, style: 'gold', strokeColor: '#5A1500', strokeWidth: 11, extrude: true, italic: true },
-    { name: 'Free spin', y: 1338, ...from(1.5), startSound: 'whoosh', startSoundVolume: 0.3, shadow: true },
+    { name: 'Free spin', y: 1338, ...from(1.5), shadow: true },
   );
   fsT.effects = [
     fx('flyIn', 30, { direction: 'right', duration: s(0.6), intensity: 0.45 }),
@@ -420,7 +421,7 @@ export function bombParty2Template(): Project {
   const players = textLayer(
     p,
     { text: 'TÜM YENİ OYUNCULARA', fontSize: 72, style: 'white', strokeColor: '#7A1E00', strokeWidth: 9, extrude: true },
-    { name: 'Hedef kitle', y: 1462, ...from(1.9), shadow: true },
+    { name: 'Hedef kitle', y: 1462, ...from(1.9), startSound: 'whoosh', startSoundVolume: 0.22, shadow: true },
   );
   players.effects = [fx('flyIn', 30, { direction: 'left', duration: s(0.7), intensity: 0.5 }), fx('pulse', 30, { start: s(0.7), duration: end, speed: 0.4, intensity: 0.12 })];
 

@@ -47,6 +47,9 @@ with sync_playwright() as p:
         while not pg.locator('[data-testid=export-done], [data-testid=export-error]').count(): time.sleep(2)
         if pg.locator('[data-testid=export-error]').count(): print(pg.locator('[data-testid=export-error]').inner_text())
     dl.value.save_as(f'{out}/music.mp4')
+    time.sleep(1)
+    chk = pg.locator('[data-testid=export-check]').inner_text(); print('uygulama içi doğrulama:', chk)
+    assert chk.startswith('✓') and '1080×1920' in chk and '180 kare' in chk
     assert not errs, errs
     b.close()
 

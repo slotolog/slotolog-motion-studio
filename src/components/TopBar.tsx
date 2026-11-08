@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { WebRendererQuality } from '@remotion/web-renderer';
 import { useStore } from '../store';
 import { emptyProject } from '../lib/factory';
-import { checkExportSupport, exportMp4, getLicenseKey, LICENSE_KEY_STORAGE } from '../lib/export';
+import { checkExportSupport, exportMp4, getLicenseKey, LICENSE_KEY_STORAGE, verifyMp4, type ExportCheck } from '../lib/export';
+import { ASPECT_SIZES } from '../types';
 import { deleteProject, downloadBlob, loadProject, exportProjectFile, importProjectFile, listProjects, type ProjectSummary } from '../lib/storage';
 import { formatTime } from '../lib/player';
 import type { Aspect } from '../types';
@@ -61,7 +62,7 @@ const ProjectsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-type Phase = { kind: 'idle' } | { kind: 'checking' } | { kind: 'rendering'; progress: number; eta: number } | { kind: 'done'; blob: Blob; ms: number } | { kind: 'error'; message: string };
+type Phase = { kind: 'idle' } | { kind: 'checking' } | { kind: 'rendering'; progress: number; eta: number } | { kind: 'done'; blob: Blob; ms: number; check: ExportCheck | null } | { kind: 'error'; message: string };
 
 const ExportModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const project = useStore((s) => s.project);
@@ -71,7 +72,8 @@ const ExportModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [issues, setIssues] = useState<string[]>([]);
   const [license, setLicense] = useState(getLicenseKey());
   const abort = useRef<AbortController | null>(null);
-  const fileName = `${project.name.replace(/[^\p{L}\p{N}_-]+/gu, '-') || 'slotolog'}-${project.aspect.replace(':', 'x')}.mp4`;
+  const size = ASPECT_SIZES[project.aspect];
+  const fileName = `${project.name.replace(/[^\p{L}\p{N}_-]+/gu, '-') || 'slotolog'}-${size.width}x${size.height}.mp4`;
 
   useEffect(() => {
     checkExportSupport(project).then((r) => setIssues(r.issues.filter((i) => i.severity === 'error').map((i) => i.message)));
@@ -89,7 +91,11 @@ const ExportModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         signal: ctl.signal,
         onProgress: (p, eta) => setPhase({ kind: 'rendering', progress: p, eta }),
       });
-      setPhase({ kind: 'done', blob, ms: performance.now() - t0 });
+      const check = await verifyMp4(blob, project).catch((err) => {
+        console.warn('MP4 doğrulanamadı', err);
+        return null;
+      });
+      setPhase({ kind: 'done', blob, ms: performance.now() - t0, check });
       downloadBlob(blob, fileName);
     } catch (e) {
       if (ctl.signal.aborted) setPhase({ kind: 'idle' });
@@ -159,6 +165,14 @@ const ExportModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         {phase.kind === 'done' && (
           <div className="rounded-md border border-green-500/40 bg-green-500/10 p-3 text-xs text-green-300" data-testid="export-done">
             Hazır! {(phase.blob.size / 1024 / 1024).toFixed(1)} MB · {(phase.ms / 1000).toFixed(0)} sn sürdü. İndirme başladı.
+            {phase.check && (
+              <div className={`mt-1.5 rounded px-2 py-1 font-mono text-[11px] ${phase.check.ok ? 'bg-green-500/10 text-green-200' : 'bg-red-500/20 text-red-200'}`} data-testid="export-check">
+                {phase.check.ok ? '✓ Doğrulandı: ' : '⚠ Sorun: '}
+                {phase.check.width}×{phase.check.height} · {phase.check.frames} kare · {phase.check.duration.toFixed(2)} sn · {phase.check.hasAudio ? 'sesli' : 'sessiz'}
+                {!phase.check.ok && <div>{phase.check.problems.join(' · ')}</div>}
+              </div>
+            )}
+            <div className="mt-1 text-[10px] text-green-200/70">Dosya: {fileName}</div>
           </div>
         )}
         {phase.kind === 'error' && (

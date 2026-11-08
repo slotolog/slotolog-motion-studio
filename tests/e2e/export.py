@@ -21,7 +21,12 @@ with sync_playwright() as p:
             time.sleep(5)
             if pg.locator('[data-testid=export-error]').count():
                 print('ERROR', pg.locator('[data-testid=export-error]').inner_text()); break
-            if pg.locator('[data-testid=export-done]').count(): break
+            if pg.locator('[data-testid=export-done]').count():
+                time.sleep(1)
+                chk = pg.locator('[data-testid=export-check]')
+                print('uygulama içi doğrulama:', chk.inner_text() if chk.count() else 'YOK')
+                assert chk.count() and chk.inner_text().startswith('✓'), 'MP4 doğrulaması başarısız'
+                break
             if pg.locator('[data-testid=export-progress]').count():
                 print(round(time.time()-t0), pg.locator('[data-testid=export-progress]').inner_text().replace('\n',' '), flush=True)
     d = dl.value
