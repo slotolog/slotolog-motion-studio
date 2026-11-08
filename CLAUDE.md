@@ -12,3 +12,4 @@
 - Ses efektleri `tools/make_sfx.py` ile üretilir (özgün). Yeni ses gerekirse aynı yöntemle sentezle; telifli kayıt ekleme.
 - Test müziği `tools/make_test_music.py` ile üretilir; `tests/e2e/music.py` BPM/vuruş doğruluğunu ve önizleme↔MP4 / ses senkronunu ölçer.
 - `window.__slotolog` testler için store erişimidir.
+- Telifli müzik (ör. kullanıcının yüklediği şarkılar) ve bunları içeren MP4/.slotolog.json dosyaları ASLA repoya veya public/ klasörüne konmaz; /home/claude/music-work gibi repo dışı klasörde tutulur.

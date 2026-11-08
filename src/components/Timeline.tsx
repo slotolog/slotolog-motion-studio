@@ -55,7 +55,15 @@ export const Timeline: React.FC = () => {
       if (!d) return;
       const df = Math.round((e.clientX - d.x0) / ppf);
       const st = useStore.getState();
-      if (d.mode === 'move') st.updateLayer(d.id, { start: Math.max(0, Math.min(total - 1, d.start0 + df)) }, false);
+      if (d.mode === 'move') {
+        let ns = Math.max(0, Math.min(total - 1, d.start0 + df));
+        // snap to music beats (hold Alt to move freely)
+        if (music && !e.altKey) {
+          const near = music.beats.map((b) => Math.round(b * fps)).find((bf) => Math.abs(bf - ns) * ppf <= 6);
+          if (near !== undefined) ns = near;
+        }
+        st.updateLayer(d.id, { start: ns }, false);
+      }
       else if (d.mode === 'right') st.updateLayer(d.id, { duration: Math.max(1, d.dur0 + df) }, false);
       else {
         const ns = Math.max(0, Math.min(d.start0 + d.dur0 - 1, d.start0 + df));

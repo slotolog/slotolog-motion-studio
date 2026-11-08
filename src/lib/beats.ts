@@ -126,9 +126,32 @@ export async function analyzeAudio(blob: Blob): Promise<AudioAnalysis> {
   const sorted = [...strengths].sort((x, y) => x - y);
   const ref = sorted[Math.floor(sorted.length * 0.95)] || 1;
   return {
+    peak: filePeak(audio),
     bpm,
     beats: beats.map((b) => Math.round(b * 1000) / 1000),
     strengths: strengths.map((s) => Math.round(Math.min(1, s / ref) * 100) / 100),
     duration: audio.duration,
   };
 }
+
+function filePeak(audio: AudioBuffer): number {
+  let p = 0;
+  for (let c = 0; c < audio.numberOfChannels; c++) {
+    const d = audio.getChannelData(c);
+    for (let i = 0; i < d.length; i++) {
+      const v = Math.abs(d[i]);
+      if (v > p) p = v;
+    }
+  }
+  return Math.round(p * 10000) / 10000;
+}
+
+/** Decodes a file and returns its peak level (0..1). */
+export async function measurePeak(blob: Blob): Promise<number> {
+  const tmp = new OfflineAudioContext(1, 1, 44100);
+  const audio = await tmp.decodeAudioData(await blob.arrayBuffer());
+  return filePeak(audio);
+}
+
+/** Gain that brings the file's peak to the target level (dBFS). */
+export const normalizeGain = (peak: number, targetDb = -1.5) => Math.min(8, Math.pow(10, targetDb / 20) / Math.max(1e-4, peak));

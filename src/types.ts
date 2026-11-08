@@ -51,7 +51,9 @@ export type EffectType =
   | 'cameraZoom'
   | 'impactShake'
   | 'goldExplosion'
-  | 'beatSync';
+  | 'beatSync'
+  | 'beatJump'
+  | 'beatTurn';
 
 export type SfxKey = 'whoosh' | 'bounce' | 'coins' | 'sparkle' | 'riser' | 'button';
 export type ZoomMode = 'in' | 'out' | 'inout';
@@ -81,6 +83,9 @@ export interface Effect {
   zoomMode?: ZoomMode;
   /** follow the music beats (Dance Pro, Group Dance, Golden Explosion, Beat Sync) */
   syncToMusic?: boolean;
+  /** music-triggered effects: react to every Nth trigger beat, starting at offset */
+  beatEvery?: number;
+  beatOffset?: number;
 }
 
 export type BackgroundStyle = 'rays' | 'gradient' | 'dark' | 'luxury' | 'party';
@@ -196,6 +201,12 @@ export interface AudioAnalysis {
   /** 0..1 strength of each beat */
   strengths: number[];
   duration: number;
+  /** loudest sample of the file (0..1), used for normalising */
+  peak?: number;
+  /** true when the beat grid was set by hand (tempo, first beat) */
+  manual?: boolean;
+  firstBeat?: number;
+  beatsPerBar?: number;
 }
 
 export interface MusicSection {

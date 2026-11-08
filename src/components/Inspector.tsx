@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSelectedLayer, useStore } from '../store';
-import { EASING_LABELS, EFFECT_META, LOOPING_EFFECTS, MUSIC_EFFECTS, propAt } from '../lib/anim';
+import { BEAT_TRIGGER_EFFECTS, EASING_LABELS, EFFECT_META, LOOPING_EFFECTS, MUSIC_EFFECTS, propAt } from '../lib/anim';
 import { SFX, SFX_KEYS } from '../lib/sfx';
 import { projectAudio } from '../lib/music';
 import { uid } from '../lib/factory';
@@ -173,6 +173,13 @@ const EffectsEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
             {MUSIC_EFFECTS.includes(e.type) && (
               <Toggle value={e.syncToMusic !== false} onChange={(v) => st.updateEffect(layer.id, e.id, { syncToMusic: v })} label="Müzikle senkron (müzik varsa)" />
             )}
+            {BEAT_TRIGGER_EFFECTS.includes(e.type) && e.syncToMusic !== false && (
+              <Row label="Her N vuruşta">
+                <NumInput value={e.beatEvery ?? (e.type === 'beatTurn' ? 2 : 1)} min={1} max={32} onChange={(v) => st.updateEffect(layer.id, e.id, { beatEvery: Math.round(v) })} />
+                <span className="text-[10px] text-neutral-500">kaydır</span>
+                <NumInput value={e.beatOffset ?? (e.type === 'beatTurn' ? 1 : 0)} min={0} max={31} onChange={(v) => st.updateEffect(layer.id, e.id, { beatOffset: Math.round(v) })} />
+              </Row>
+            )}
             <Row label="Ses efekti">
               <SoundSelect value={e.sound} volume={e.soundVolume} onChange={(v, vol) => st.updateEffect(layer.id, e.id, { sound: v, soundVolume: vol })} />
             </Row>
@@ -314,6 +321,71 @@ const ProjectSettings: React.FC = () => {
   );
 };
 
+/** Manual correction of the detected tempo / beat grid. */
+const BeatGridEditor: React.FC<{ assetId: string }> = ({ assetId }) => {
+  const asset = useStore((s) => s.project.assets.find((a) => a.id === assetId));
+  const frame = useStore((s) => s.frame);
+  const layer = useSelectedLayer();
+  const fps = useStore((s) => s.project.fps);
+  const [bpm, setBpm] = React.useState(asset?.analysis?.bpm ?? 120);
+  const [first, setFirst] = React.useState(asset?.analysis?.firstBeat ?? asset?.analysis?.beats[0] ?? 0);
+  const [bar, setBar] = React.useState(asset?.analysis?.beatsPerBar ?? 4);
+  React.useEffect(() => {
+    if (asset?.analysis) {
+      setBpm(asset.analysis.bpm);
+      setFirst(asset.analysis.firstBeat ?? asset.analysis.beats[0] ?? 0);
+    }
+  }, [asset?.analysis]);
+  const st = useStore.getState();
+  const apply = (b = bpm, f = first) => st.setBeatGrid(assetId, { bpm: b, firstBeat: f, beatsPerBar: bar });
+  // the playhead position expressed in the song's own time
+  const songTime = layer ? (frame - layer.start) / fps + (layer.trimStart ?? 0) : 0;
+  return (
+    <details className="rounded bg-[#141414] p-2 text-[11px] text-neutral-300" data-testid="beat-grid">
+      <summary className="cursor-pointer text-neutral-200">Ritmi elle düzelt (algılama hatalıysa)</summary>
+      <div className="mt-2 space-y-1.5">
+        <Row label="Tempo (BPM)">
+          <NumInput value={bpm} step={0.01} digits={2} min={20} max={300} onChange={setBpm} />
+        </Row>
+        <Row label="İlk ölçü başı (sn)">
+          <NumInput value={first} step={0.005} digits={3} min={0} onChange={setFirst} />
+          <Btn small title="Oynatma çizgisindeki an ölçü başı olsun" onClick={() => setFirst(Math.round(songTime * 1000) / 1000)}>
+            ▼ çizgi
+          </Btn>
+        </Row>
+        <Row label="Ölçü (vuruş)">
+          <NumInput value={bar} min={2} max={12} onChange={(v) => setBar(Math.round(v))} />
+        </Row>
+        <div className="flex flex-wrap gap-1">
+          <Btn small variant="primary" onClick={() => apply()}>
+            Izgarayı uygula
+          </Btn>
+          {[
+            ['×2', 2],
+            ['÷2', 0.5],
+            ['×3/4', 0.75],
+            ['×4/3', 4 / 3],
+          ].map(([l, f]) => (
+            <Btn
+              key={l as string}
+              small
+              title="Tempoyu bu oranla değiştirip uygula"
+              onClick={() => {
+                const nb = Math.round(bpm * (f as number) * 100) / 100;
+                setBpm(nb);
+                apply(nb, first);
+              }}
+            >
+              {l}
+            </Btn>
+          ))}
+        </div>
+        <p className="text-[10px] text-neutral-500">Aksak ritimlerde (3+3+2) tempo 4/3 kat hızlı algılanabilir; ×3/4 ile düzelt. Ölçü başları güçlü vuruş sayılır.</p>
+      </div>
+    </details>
+  );
+};
+
 const MusicLayerSettings: React.FC<{ layer: Layer }> = ({ layer }) => {
   const asset = useStore((s) => s.project.assets.find((a) => a.id === layer.assetId));
   const analyzing = useStore((s) => s.analyzing.includes(layer.assetId ?? ''));
@@ -334,6 +406,12 @@ const MusicLayerSettings: React.FC<{ layer: Layer }> = ({ layer }) => {
       <Row label="Dosyadan atla (sn)">
         <NumInput value={layer.trimStart ?? 0} step={0.1} digits={2} min={0} onChange={(v) => up({ trimStart: v })} />
       </Row>
+      <Row label="Kazanç">
+        <NumInput value={layer.volume ?? 1} step={0.05} digits={2} min={0} max={8} onChange={(v) => up({ volume: v })} />
+        <Btn small title="Şarkının en yüksek noktası −1,5 dBFS olacak şekilde ayarla" onClick={() => st.normalizeLayer(layer.id)}>
+          Normalleştir
+        </Btn>
+      </Row>
       <Row label="Fade-in (sn)">
         <NumInput value={layer.fadeIn ?? 0} step={0.1} digits={1} min={0} onChange={(v) => up({ fadeIn: v })} />
       </Row>
@@ -352,13 +430,15 @@ const MusicLayerSettings: React.FC<{ layer: Layer }> = ({ layer }) => {
           ) : (
             'Henüz analiz edilmedi.'
           )}
+          {asset?.analysis?.manual && <span className="ml-1 text-[10px] text-neutral-400">(elle ayarlandı)</span>}
           {asset && !asset.src && (
             <Btn small className="ml-2" onClick={() => st.analyzeAsset(asset.id)} disabled={analyzing}>
-              Ritmi analiz et
+              {asset.analysis ? 'Otomatik yeniden algıla' : 'Ritmi analiz et'}
             </Btn>
           )}
         </div>
       )}
+      {(layer.channel ?? 'music') === 'music' && asset && <BeatGridEditor assetId={asset.id} />}
     </Section>
   );
 };
@@ -635,7 +715,7 @@ export const Inspector: React.FC = () => {
           {layer.type === 'video' && <Toggle value={!!layer.loop} onChange={(v) => up({ loop: v })} label="Döngü (video bitince başa sar)" />}
           <Toggle value={!!layer.muted} onChange={(v) => up({ muted: v })} label="Sessiz" />
           <Row label="Ses düzeyi">
-            <Slider value={layer.volume ?? 1} min={0} max={1} onChange={(v) => up({ volume: v })} />
+            <Slider value={layer.volume ?? 1} min={0} max={layer.type === 'audio' ? 4 : 1} onChange={(v) => up({ volume: v })} />
           </Row>
         </Section>
       )}

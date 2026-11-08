@@ -5,7 +5,7 @@ import { getAssetBlob, saveAssetBlob, saveProject } from './lib/storage';
 import { multiplierTemplate } from './lib/templates';
 import { BRAND_ASSETS, brandUrl, type BrandKey } from './lib/brand';
 import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project, ProjectAudio, SfxKey } from './types';
-import { analyzeAudio } from './lib/beats';
+import { analyzeAudio, measurePeak, normalizeGain } from './lib/beats';
 import { projectAudio } from './lib/music';
 import { SFX } from './lib/sfx';
 import { LOOPING_EFFECTS } from './lib/anim';
@@ -58,6 +58,8 @@ interface State {
   analyzing: string[];
   analyzeAsset: (assetId: string) => Promise<void>;
   setAudio: (patch: Partial<ProjectAudio>) => void;
+  normalizeLayer: (layerId: string, targetDb?: number) => Promise<number | null>;
+  setBeatGrid: (assetId: string, grid: { bpm: number; firstBeat: number; beatsPerBar?: number }) => void;
   arrangeLayout: (layerId: string, layout: LayoutKind) => void;
   applyAssetToLayer: (layerId: string, assetId: string) => void;
   removeAsset: (assetId: string) => void;
@@ -295,6 +297,39 @@ export const useStore = create<State>((set, get) => {
       } finally {
         set({ analyzing: get().analyzing.filter((x) => x !== assetId) });
       }
+    },
+    setBeatGrid: (assetId, { bpm, firstBeat, beatsPerBar = 4 }) =>
+      commit((p) => ({
+        ...p,
+        assets: p.assets.map((a) => {
+          if (a.id !== assetId) return a;
+          const duration = a.analysis?.duration ?? a.duration ?? 600;
+          const period = 60 / Math.max(20, Math.min(300, bpm));
+          const beats: number[] = [];
+          const strengths: number[] = [];
+          // grid from the first beat; earlier beats too, if the first beat is not at 0
+          let t = firstBeat - Math.floor(firstBeat / period) * period;
+          let i = -Math.floor(firstBeat / period);
+          for (; t < duration; t += period, i++) {
+            beats.push(Math.round(t * 1000) / 1000);
+            const pos = ((i % beatsPerBar) + beatsPerBar) % beatsPerBar;
+            strengths.push(pos === 0 ? 1 : pos === beatsPerBar / 2 ? 0.7 : 0.5);
+          }
+          return { ...a, analysis: { bpm: Math.round(bpm * 100) / 100, beats, strengths, duration, manual: true, firstBeat, beatsPerBar, peak: a.analysis?.peak } };
+        }),
+      })),
+    normalizeLayer: async (layerId, targetDb = -1.5) => {
+      const l = get().project.layers.find((x) => x.id === layerId);
+      const url = l?.assetId ? get().assetUrls[l.assetId] : undefined;
+      if (!l || !url) return null;
+      let peak = get().project.assets.find((a) => a.id === l.assetId)?.analysis?.peak;
+      if (!peak) {
+        peak = await measurePeak(await (await fetch(url)).blob());
+        commit((p) => ({ ...p, assets: p.assets.map((a) => (a.id === l.assetId && a.analysis ? { ...a, analysis: { ...a.analysis, peak } } : a)) }), false);
+      }
+      const gain = Math.round(normalizeGain(peak, targetDb) * 100) / 100;
+      get().updateLayer(layerId, { volume: gain });
+      return gain;
     },
     setAudio: (patch) => commit((p) => ({ ...p, audio: { ...projectAudio(p), ...patch } })),
     addSfxLayer: (key) => {

@@ -454,7 +454,51 @@ export function bombParty2Template(): Project {
   return p;
 }
 
+/**
+ * G. Bomb Party 2.0 — Music Edition: identical design; the bombs, camera and texts react to
+ * the analysed music (bass pulse, jumps on strong beats, turns, explosions). Without music it
+ * still plays like Bomb Party 2.0 (time-based motion only).
+ */
+export function bombParty2MusicTemplate(): Project {
+  const p = bombParty2Template();
+  p.name = 'Slotolog Bomb Party 2.0 — Music Edition';
+  const end = p.durationInFrames;
+  const fx = makeEffect;
+  const bombs = p.layers.filter((l) => /^1000X bomba \d$/.test(l.name));
+  bombs.forEach((l, i) => {
+    const live = s(0.7);
+    // keep entrances, light and the slow group motion; replace fixed-time accents with beat-driven ones
+    l.effects = l.effects.filter(
+      (e) => !(e.type === 'bouncePro' || e.type === 'goldExplosion' || (e.type === 'flash' && e.start > s(1))),
+    );
+    l.effects = l.effects.map((e) => {
+      if (e.type === 'dancePro') return { ...e, speed: 0.5, intensity: 0.32, phase: i % 2 ? 1 : 0 };
+      if (e.type === 'smoothRotate') return { ...e, intensity: 0.3 };
+      if (e.type === 'float') return { ...e, intensity: 0.4 };
+      if (e.type === 'beatSync') return { ...e, intensity: 0.6 };
+      return e;
+    });
+    l.effects.push(
+      fx('beatJump', 30, { start: live, duration: end, intensity: 0.85 }),
+      fx('beatTurn', 30, { start: live, duration: end, intensity: 0.9, beatEvery: 2, beatOffset: 1, direction: i % 2 ? 'left' : 'right' }),
+      // explosions travel around the bombs on the strong beats (every 4th strong beat per bomb)
+      fx('goldExplosion', 30, { start: live, duration: end, intensity: 0.75, syncToMusic: true, beatEvery: 4, beatOffset: [1, 3, 2, 0, 2][i] }),
+    );
+  });
+  const cam = p.layers.find((l) => l.type === 'camera');
+  if (cam) {
+    cam.effects = cam.effects.filter((e) => e.type === 'cameraZoom');
+    cam.effects.push(
+      fx('beatSync', 30, { start: 0, duration: end, intensity: 0.12 }),
+      fx('impactShake', 30, { start: s(1), duration: end, intensity: 0.28, syncToMusic: true, beatEvery: 2 }),
+    );
+  }
+  p.audio = { musicVolume: 0.85, sfxVolume: 0.45, musicMuted: false, sfxMuted: false, syncEnabled: true, sections: [] };
+  return p;
+}
+
 export const TEMPLATES = [
+  { id: 'bombparty2music', name: '★ Bomb Party 2.0 — Music Edition', desc: 'Müzik ekle: bombalar vuruşlara göre dans eder · 18 sn', make: bombParty2MusicTemplate },
   { id: 'bombparty2', name: '★ Slotolog 1000X Bomb Party 2.0', desc: 'Kamera, Dance Pro, özgün sesler, müziğe hazır · 18 sn', make: bombParty2Template },
   { id: 'bombparty', name: '★ Slotolog 1000X Bomb Party', desc: '5 adet 1000X bomba, parti arka planı, meyveler, 18 sn', make: bombPartyTemplate },
   { id: 'premium', name: '★ Slotolog Premium Bonus', desc: 'Lüks altın-siyah, logo, 100X–1000X, bonus, 15 sn', make: premiumTemplate },

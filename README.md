@@ -78,6 +78,10 @@ Bir katman seç → **Efektler** sekmesi veya sağ panelde “+ Efekt ekle”. E
 | Camera Zoom / Impact Shake | Kamera katmanında tüm sahne yakınlaşır / sarsılır; normal katmanda sadece o nesne |
 | Golden Explosion | Nesneden altın patlaması; müzikte güçlü vuruşlarda tekrarlayabilir |
 | Music Beat Sync | Müzikteki her vuruşta büyür ve parlar (müzik yoksa durur) |
+| Beat Jump | Müzikte güçlü vuruşlarda (ölçü başı) zıplar |
+| Beat Turn | Vuruşlarda sırayla sağa-sola döner |
+
+Müzikle tetiklenen efektlerde **Her N vuruşta / kaydır** ayarı vardır (ör. patlamayı her 4. güçlü vuruşta, farklı bombalarda sırayla çalıştırmak için).
 
 Her efekte **ses efekti** bağlanabilir (efekt başladığında çalar). Katmanlara **giriş sesi**, **yumuşak gölge**, **hareket bulanıklığı** ve **kamera derinliği** (paralaks) verilebilir.
 
@@ -98,6 +102,9 @@ Bir görseli seç → sağ panel **Çoklu nesne düzeni** → “2 üstte · 3 a
 - **Kendi müziğin:** MP3/WAV/M4A yükle → “Ekle”. Müzik katmanında: başlangıç/süre, dosyadan atla (kırpma), fade-in/out, ses düzeyi, kanal (Müzik / Ses efekti). Zaman çizelgesinde sol kenarı sürüklemek şarkının başını keser.
 - **Kanallar:** Proje ayarlarında (boşluğa tıkla) Müzik ve Efekt kanallarının ses düzeyi ayrı ayarlanır / kapatılır. MP4’te hepsi birlikte karıştırılır.
 - **Otomatik ritim:** Yüklenen müziğin temposu (BPM) ve vuruşları tarayıcıda otomatik bulunur; zaman çizelgesinin cetvelinde turuncu çizgiler olarak görünür (uzun çizgi = güçlü vuruş). Dance Pro, Group Dance, Music Beat Sync, Golden Explosion ve Impact Shake (müzikle senkron açıksa) vuruşlara uyar. “Animasyonları müzikle senkronla” ile kapatılabilir.
+- **Ritmi elle düzelt:** Müzik katmanı seçiliyken “Ritmi elle düzelt”: tempo (BPM), ilk ölçü başı (oynatma çizgisinden alınabilir) ve ölçü uzunluğu. ×2, ÷2, ×3/4, ×4/3 hızlı düzeltmeleri vardır. Aksak (3+3+2) ritimli şarkılarda otomatik algılama tempoyu 4/3 kat hızlı bulabilir; ×3/4 ile düzeltilir.
+- **Normalleştir:** Müzik katmanında “Kazanç” + “Normalleştir” şarkının en yüksek noktasını −1,5 dBFS’e getirir (kısık indirilen dosyalar için). Kazanç 1’den büyük olabilir.
+- **Vuruşa hizalama:** Müzik varken zaman çizelgesinde katman çubuğu sürüklenirken vuruşlara yapışır (Alt: serbest).
 - **Nakarat:** Otomatik algılanmaz. Proje ayarlarında “+ Oynatma çizgisinden” ile nakarat/güçlü bölüm işaretle; bu aralıkta müzik efektleri “güç” katı kadar güçlenir.
 
 ### Hareketli arka plan
@@ -129,6 +136,7 @@ Remotion; bireyler ve **en fazla 3 çalışanlı** şirketler için ücretsizdir
 
 ## 5. Şablonlar
 
+- **★ Bomb Party 2.0 — Music Edition (18 sn):** Bomb Party 2.0 ile aynı tasarım; müzik eklenince bombalar bas vuruşlarında büyür, güçlü vuruşlarda birlikte zıplar (Beat Jump), vuruşlarda sırayla sağa-sola döner (Beat Turn), altın patlamaları güçlü vuruşlarda bombalar arasında dolaşır, kamera vuruşla nabız atar. Müziksiz de çalışır.
 - **★ Slotolog 1000X Bomb Party 2.0 (18 sn):** kamera yakınlaşma/sarsıntı, 5 bağımsız bomba (Dance Pro, Group Dance, Smooth Rotation, Floating, Light Sweep, gölge, hareket bulanıklığı), Golden Explosion’lar, güçlü yazı girişleri, final bölümünde parlayan buton, özgün ses efektleri. Müzik eklenirse bombalar vuruşlara göre dans eder ve büyür.
 - **★ Slotolog 1000X Bomb Party (18 sn):** parti arka planı (turuncu-altın-pembe, dönen ışıklar, parlamalar), üst/alt meyve çerçevesi, uçuşan meyveler ve altınlar, logo rozeti, üstte 2 + altta 3 adet 1000X bomba (her biri ayrı katman: sallanma, süzülme, büyüme-küçülme, ışık yansıması — farklı fazlarla), 100.000TL + 450FS, TÜM YENİ OYUNCULARA, BONUSU AL.
 - **★ Slotolog Premium Bonus (15 sn):** lüks altın-siyah arka plan, logo, 100X–750X + 1000X görseli, bonus yazıları, buton.
@@ -171,3 +179,9 @@ src/
 ```
 
 Komutlar: `npm run dev` (geliştirme) · `npm run build` (üretim, `dist/`) · `npm run preview` · `npm run typecheck`
+
+## 8. Telifli müzik
+
+Kendi seçtiğin şarkılar yalnızca senin tarayıcında / proje dosyanda tutulur; bu depoya ve canlı uygulamaya **yüklenmez**. Reklamda ticari bir şarkı kullanmak için hak sahiplerinden (yapımcı/yayıncı) senkronizasyon lisansı gerekir.
+
+`tools/build_music_project.py`, bir şablonu yerel bir müzik dosyasıyla birleştirip düzenlenebilir proje (.slotolog.json) ve MP4 üretir; şarkıya özel ayar dosyası da yerel kalır.

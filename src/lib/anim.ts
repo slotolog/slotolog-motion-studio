@@ -116,6 +116,8 @@ export const EFFECT_META: Record<
   impactShake: { label: 'Impact Shake', icon: '💥', defaultDuration: 1, description: 'Sönümlenen sarsıntı (Kamera’da ekran sarsıntısı)' },
   goldExplosion: { label: 'Golden Explosion', icon: '🪙', defaultDuration: 2, description: 'Nesneden altın patlaması fışkırır' },
   beatSync: { label: 'Music Beat Sync', icon: '🎵', defaultDuration: 10, description: 'Müzikteki her vuruşta büyür ve parlar' },
+  beatJump: { label: 'Beat Jump', icon: '🦘', defaultDuration: 10, description: 'Müzikte güçlü vuruşlarda zıplar (müzik gerekir)' },
+  beatTurn: { label: 'Beat Turn', icon: '↔', defaultDuration: 10, description: 'Vuruşlarda sırayla sağa-sola döner (müzik gerekir)' },
 };
 
 /**
@@ -134,7 +136,21 @@ export const LOOPING_EFFECTS: EffectType[] = [
   'bounce', 'dance', 'sway', 'spin', 'pulse', 'glow', 'beat', 'float', 'shine', 'shake',
   'dancePro', 'bouncePro', 'smoothRotate', 'groupDance', 'beatSync',
 ];
-export const MUSIC_EFFECTS: EffectType[] = ['dancePro', 'groupDance', 'goldExplosion', 'beatSync', 'impactShake'];
+export const MUSIC_EFFECTS: EffectType[] = ['dancePro', 'groupDance', 'goldExplosion', 'beatSync', 'impactShake', 'beatJump', 'beatTurn'];
+/** effects fired by individual beats: they support "every Nth beat" + offset */
+export const BEAT_TRIGGER_EFFECTS: EffectType[] = ['goldExplosion', 'impactShake', 'beatJump', 'beatTurn'];
+
+/** trigger beats of an effect between its start and now (every Nth, with offset) */
+function triggers(list: number[], from: number, now: number, every = 1, offset = 0): number[] {
+  const n = Math.max(1, Math.round(every));
+  const out: number[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const b = list[i];
+    if (b > now) break;
+    if (b >= from && i % n === ((offset % n) + n) % n) out.push(b);
+  }
+  return out;
+}
 
 const smooth = (x: number) => x * x * (3 - 2 * x);
 
@@ -156,6 +172,7 @@ export function computeEffects(
     const boost = synced ? boostAt(music, nowComp) : 1;
     // "music only" effects stay silent until a song with analysed beats is added
     if (e.syncToMusic === true && !music && (e.type === 'goldExplosion' || e.type === 'impactShake' || e.type === 'beatSync')) return;
+    if ((e.type === 'beatJump' || e.type === 'beatTurn') && (!music || e.syncToMusic === false)) return;
     const t = (frame - e.start) / fps + (LOOPING.includes(e.type) ? (e.phase ?? 0) : 0); // seconds since effect start
     const sp = e.speed || 1;
     const k = e.intensity ?? 1;
@@ -319,7 +336,7 @@ export function computeEffects(
       case 'impactShake': {
         let age = (frame - e.start) / fps;
         if (synced) {
-          const strong = music!.strong.filter((x) => x >= startComp && x <= nowComp);
+          const strong = triggers(music!.strong, startComp, nowComp, e.beatEvery, e.beatOffset);
           if (!strong.length) break;
           age = nowComp - strong[strong.length - 1];
         }
@@ -336,8 +353,8 @@ export function computeEffects(
         const age = (frame - e.start) / fps;
         if (age < life && e.syncToMusic !== true) out.explosions.push({ age: age * sp, seed: idx * 13 + 1, power: k });
         if (synced) {
-          for (const b of music!.strong) {
-            if (b > startComp && b <= nowComp && nowComp - b < life) out.explosions.push({ age: (nowComp - b) * sp, seed: Math.round(b * 100), power: k * boost });
+          for (const b of triggers(music!.strong, startComp, nowComp, e.beatEvery, e.beatOffset)) {
+            if (nowComp - b < life) out.explosions.push({ age: (nowComp - b) * sp, seed: Math.round(b * 100), power: k * boost });
           }
         }
         break;
@@ -354,6 +371,33 @@ export function computeEffects(
         }
         out.scaleMul *= 1 + 0.12 * k * pulse;
         out.brightness *= 1 + 0.15 * k * pulse;
+        break;
+      }
+      case 'beatJump': {
+        const hits = triggers(music!.strong, startComp, nowComp, e.beatEvery, e.beatOffset);
+        if (!hits.length) break;
+        const a = nowComp - hits[hits.length - 1];
+        const D = 0.42 / sp;
+        if (a >= D) break;
+        const p = a / D;
+        const kk = k * boost;
+        out.dy -= Math.pow(Math.sin(Math.PI * p), 0.9) * 60 * kk;
+        if (p < 0.12 || p > 0.88) {
+          out.scaleY *= 1 - 0.1 * kk;
+          out.scaleX *= 1 + 0.07 * kk;
+        } else out.scaleY *= 1 + 0.05 * kk * Math.sin(Math.PI * p);
+        break;
+      }
+      case 'beatTurn': {
+        const hits = triggers(music!.beats, startComp, nowComp, e.beatEvery ?? 2, e.beatOffset ?? 1);
+        if (!hits.length) break;
+        const n = hits.length;
+        const A = 11 * k * boost * (e.direction === 'left' ? -1 : 1);
+        const target = n % 2 ? A : -A;
+        const a = nowComp - hits[n - 1];
+        const p = Math.min(1, (a * sp) / 0.3);
+        const prev = n === 1 ? 0 : -target;
+        out.dRot += prev + (target - prev) * Easing.out(Easing.back(1.4))(p);
         break;
       }
       case 'beat': {
