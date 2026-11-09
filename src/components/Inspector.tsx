@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSelectedLayer, useStore } from '../store';
+import { SpeedRampEditor } from './SpeedRampEditor';
 import { BEAT_TRIGGER_EFFECTS, EASING_LABELS, EFFECT_META, LOOPING_EFFECTS, MUSIC_EFFECTS, propAt } from '../lib/anim';
 import { SFX, SFX_KEYS } from '../lib/sfx';
 import { projectAudio } from '../lib/music';
@@ -8,7 +9,7 @@ import { LAYOUTS } from '../store';
 import { seek } from '../lib/player';
 import { BG_PRESETS } from '../lib/factory';
 import type { AnimProp, BackgroundStyle, Direction, EasingName, EffectType, Layer, ParticleKind, SfxKey, TextStyle, ZoomMode } from '../types';
-import { ASPECT_SIZES } from '../types';
+import { projectSize } from '../types';
 import { TYPE_META } from './Timeline';
 import { Btn, ColorInput, NumInput, Row, Section, Select, Slider, TextInput, Toggle } from './ui';
 
@@ -297,7 +298,7 @@ const AudioSettings: React.FC = () => {
 const ProjectSettings: React.FC = () => {
   const p = useStore((s) => s.project);
   const st = useStore.getState();
-  const { width, height } = ASPECT_SIZES[p.aspect];
+  const { width, height } = projectSize(p);
   return (
     <>
       <Section title="Proje">
@@ -738,8 +739,14 @@ export const Inspector: React.FC = () => {
               ]}
             />
           </Row>
+          {layer.type === 'video' && (
+            <Btn small onClick={() => st.fitProjectToVideo(layer.id)} data-testid="fit-project-to-video">
+              Projeyi bu videonun orijinal oranına ayarla
+            </Btn>
+          )}
         </Section>
       )}
+      {layer.type === 'video' && <SpeedRampEditor layer={layer} />}
       {layer.type === 'audio' && <MusicLayerSettings layer={layer} />}
       {(layer.type === 'video' || layer.type === 'audio') && (
         <Section title="Ses">

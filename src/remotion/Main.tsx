@@ -8,6 +8,7 @@ import { rand } from '../lib/anim';
 import type { CompositionProps, Layer, ProjectAudio, SfxKey } from '../types';
 import { BackgroundCanvas, ButtonView, FrameCanvas, MultiplierSvg, ParticlesCanvas, Placeholder, ShineImage, SubtitleView, SvgText } from './Elements';
 import { fillTemplate, defaultSubtitleStyle } from '../lib/story';
+import { expandRamp } from '../lib/speedramp';
 import type { StoryData } from '../types';
 
 const StoryContext = React.createContext<StoryData | undefined>(undefined);
@@ -34,6 +35,7 @@ const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput[
         <Placeholder label="Görsel bulunamadı" />
       );
     case 'video':
+      if (url && layer.speedRamp) return <RampVideo layer={layer} url={url} fps={fps} />;
       return url ? (
         <Video
           src={url}
@@ -61,6 +63,40 @@ const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput[
     default:
       return null;
   }
+};
+
+/** variable speed: consecutive constant-speed pieces of the same file, nothing skipped */
+const RampVideo: React.FC<{ layer: Layer; url: string; fps: number }> = ({ layer, url, fps }) => {
+  const pieces = useMemo(() => expandRamp(layer.speedRamp!, fps), [layer.speedRamp, fps]);
+  const base = layer.muted ? 0 : (layer.volume ?? 1);
+  const fade = Math.max(2, Math.round(0.12 * fps));
+  return (
+    <>
+      {pieces.map((p, i) => {
+        const prev = pieces[i - 1]?.volume ?? 0;
+        const next = pieces[i + 1]?.volume ?? 0;
+        const v = p.volume * base;
+        return (
+          <Sequence key={i} from={p.out0} durationInFrames={p.len} premountFor={Math.round(fps * 0.5)} name={`${p.speed.toFixed(2)}×`}>
+            <Video
+              src={url}
+              objectFit={layer.objectFit ?? 'cover'}
+              muted={v <= 0}
+              trimBefore={Math.max(0, Math.round(p.src0 * fps))}
+              playbackRate={p.speed}
+              volume={(f: number) => {
+                let k = v;
+                if (prev < p.volume && f < fade) k *= f / fade;
+                if (next < p.volume && f > p.len - fade) k *= Math.max(0, (p.len - f) / fade);
+                return k;
+              }}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </Sequence>
+        );
+      })}
+    </>
+  );
 };
 
 const StoryText: React.FC<{ layer: Layer }> = ({ layer }) => {

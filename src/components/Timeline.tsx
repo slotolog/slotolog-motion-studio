@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { formatTime, seek, togglePlay } from '../lib/player';
 import { EFFECT_META } from '../lib/anim';
-import { ANIM_PROPS, type Layer, type LayerType } from '../types';
+import { ANIM_PROPS, type Layer, type LayerType, type SpeedRamp } from '../types';
+import { normalizeRamp, segmentStarts } from '../lib/speedramp';
 import { buildMusicSync } from '../lib/music';
 import { NumInput } from './ui';
 
@@ -24,7 +25,44 @@ export const TYPE_META: Record<LayerType, { icon: string; color: string; label: 
 const LABEL_W = 210;
 const ROW_H = 34;
 
-type TDrag = { id: string; mode: 'move' | 'left' | 'right'; x0: number; start0: number; dur0: number; trim0: number; media: boolean };
+type TDrag = { id: string; mode: 'move' | 'left' | 'right' | 'ramp'; x0: number; start0: number; dur0: number; trim0: number; media: boolean; seg?: number; ramp?: SpeedRamp };
+
+/** speed-ramp parts inside a video bar: speed labels and draggable boundaries */
+const RampMarks: React.FC<{ l: Layer; ppf: number; fps: number; onDrag: (e: React.PointerEvent, i: number) => void }> = ({ l, ppf, fps, onDrag }) => {
+  const r = React.useMemo(() => normalizeRamp(l.speedRamp!), [l.speedRamp]);
+  const starts = React.useMemo(() => segmentStarts(r, fps), [r, fps]);
+  return (
+    <>
+      {r.segments.map((s, i) => {
+        const x = starts[i] * fps * ppf;
+        const w = ((starts[i + 1] ?? l.duration / fps) - starts[i]) * fps * ppf;
+        const slow = s.speed <= 1.05;
+        return (
+          <React.Fragment key={i}>
+            <div
+              className={`pointer-events-none absolute top-0 h-full ${slow ? 'bg-emerald-400/35' : s.speed >= 4 ? 'bg-black/25' : 'bg-black/10'}`}
+              style={{ left: x, width: Math.max(1, w) }}
+              title={`${s.speed}×${s.note ? ' · ' + s.note : ''}`}
+            >
+              {w > 22 && <span className="absolute bottom-0 left-1 text-[9px] leading-3 text-white/90">{+s.speed.toFixed(2)}×</span>}
+            </div>
+            {i > 0 && (
+              <div
+                data-testid={`ramp-handle-${i}`}
+                title={`Hız sınırı: ${s.from.toFixed(2)} sn (sürükle)`}
+                className="absolute top-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize"
+                style={{ left: x }}
+                onPointerDown={(e) => onDrag(e, i)}
+              >
+                <div className="mx-auto h-full w-0.5 bg-white" />
+              </div>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+};
 
 export const Timeline: React.FC = () => {
   const project = useStore((s) => s.project);
@@ -57,6 +95,18 @@ export const Timeline: React.FC = () => {
       if (!d) return;
       const df = Math.round((e.clientX - d.x0) / ppf);
       const st = useStore.getState();
+      if (d.mode === 'ramp' && d.ramp && d.seg !== undefined) {
+        // moving a speed boundary: dragging right adds footage of the left part (at its speed)
+        const segs = d.ramp.segments;
+        const i = d.seg;
+        const dsec = (e.clientX - d.x0) / ppf / fps;
+        const sp = dsec > 0 ? segs[i - 1].speed : segs[i].speed;
+        const lo = segs[i - 1].from + 0.05;
+        const hi = (segs[i + 1]?.from ?? d.ramp.end) - 0.05;
+        const from = Math.max(lo, Math.min(hi, segs[i].from + dsec * sp));
+        st.setSpeedRamp(d.id, { ...d.ramp, segments: segs.map((s, k) => (k === i ? { ...s, from: Math.round(from * 100) / 100 } : s)) }, false);
+        return;
+      }
       if (d.mode === 'move') {
         let ns = Math.max(0, Math.min(total - 1, d.start0 + df));
         // snap to music beats (hold Alt to move freely)
@@ -213,9 +263,16 @@ export const Timeline: React.FC = () => {
                     style={{ left: l.start * ppf, width: Math.max(4, l.duration * ppf), background: meta.color }}
                     onPointerDown={(e) => startDrag(e, l, 'move')}
                   >
-                    <div className="absolute top-0 left-0 h-full w-1.5 cursor-ew-resize bg-black/30" onPointerDown={(e) => startDrag(e, l, 'left')} />
+                    {!l.speedRamp && <div className="absolute top-0 left-0 h-full w-1.5 cursor-ew-resize bg-black/30" onPointerDown={(e) => startDrag(e, l, 'left')} />}
                     <span className="truncate px-2">{l.name}</span>
-                    <div className="absolute top-0 right-0 h-full w-1.5 cursor-ew-resize bg-black/30" onPointerDown={(e) => startDrag(e, l, 'right')} />
+                    {!l.speedRamp && <div className="absolute top-0 right-0 h-full w-1.5 cursor-ew-resize bg-black/30" onPointerDown={(e) => startDrag(e, l, 'right')} />}
+                    {l.speedRamp && <RampMarks l={l} ppf={ppf} fps={fps} onDrag={(e, i) => {
+                      e.stopPropagation();
+                      useStore.getState().select(l.id);
+                      if (l.locked) return;
+                      useStore.getState().checkpoint();
+                      drag.current = { id: l.id, mode: 'ramp', x0: e.clientX, start0: l.start, dur0: l.duration, trim0: 0, media: true, seg: i, ramp: normalizeRamp(l.speedRamp!) };
+                    }} />}
                     {[...kfFrames].map((f) => (
                       <div
                         key={f}

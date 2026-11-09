@@ -4,14 +4,15 @@ import { propAt } from './lib/anim';
 import { getAssetBlob, saveAssetBlob, saveProject } from './lib/storage';
 import { multiplierTemplate } from './lib/templates';
 import { BRAND_ASSETS, brandUrl, type BrandKey } from './lib/brand';
-import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project, ProjectAudio, SfxKey, StoryData } from './types';
+import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project, ProjectAudio, SfxKey, SpeedRamp, StoryData } from './types';
 import { captureOverrides, rebuildStory, sceneStarts } from './lib/story';
 import { seek } from './lib/player';
 import { analyzeAudio, measurePeak, normalizeGain } from './lib/beats';
 import { projectAudio } from './lib/music';
 import { SFX } from './lib/sfx';
 import { LOOPING_EFFECTS } from './lib/anim';
-import { ASPECT_SIZES } from './types';
+import { rampPatch } from './lib/speedramp';
+import { ASPECT_SIZES, projectSize } from './types';
 
 type Updater = (p: Project) => Project;
 export type LayoutKind = '2+3' | '3+2' | '2x2' | '1x3';
@@ -70,6 +71,8 @@ interface State {
   selectScene: (id: string) => void;
   /** forget the user's edits of story layers whose slot starts with prefix (scene id, or scene:part) */
   resetOverrides: (prefix: string) => void;
+  setSpeedRamp: (layerId: string, ramp: SpeedRamp | undefined, record?: boolean) => void;
+  fitProjectToVideo: (layerId: string) => void;
   addVoiceFile: (file: File) => Promise<Asset>;
   normalizeLayer: (layerId: string, targetDb?: number) => Promise<number | null>;
   setBeatGrid: (assetId: string, grid: { bpm: number; firstBeat: number; beatsPerBar?: number }) => void;
@@ -391,6 +394,24 @@ export const useStore = create<State>((set, get) => {
       set({ selectedSceneId: id, frame });
       seek(frame);
     },
+    setSpeedRamp: (layerId, ramp, record = true) => {
+      const l = get().project.layers.find((x) => x.id === layerId);
+      if (l) get().updateLayer(layerId, rampPatch(l, ramp, get().project.fps), record);
+    },
+    fitProjectToVideo: (layerId) =>
+      commit((p) => {
+        const l = p.layers.find((x) => x.id === layerId);
+        const a = p.assets.find((x) => x.id === l?.assetId);
+        if (!l || !a?.width || !a.height) return p;
+        const k = Math.min(1, 1920 / Math.max(a.width, a.height));
+        const even = (v: number) => Math.max(2, Math.round((v * k) / 2) * 2);
+        const size = { width: even(a.width), height: even(a.height) };
+        return {
+          ...p,
+          size,
+          layers: p.layers.map((x) => (x.id === layerId ? { ...x, x: size.width / 2, y: size.height / 2, width: size.width, height: size.height, objectFit: 'cover' as const, keyframes: { ...x.keyframes, x: [], y: [], scale: [] }, scale: 1, rotation: 0 } : x)),
+        };
+      }),
     resetOverrides: (prefix) =>
       get().updateStory((st) => ({
         ...st,
@@ -422,7 +443,7 @@ export const useStore = create<State>((set, get) => {
       const l = project.layers.find((x) => x.id === layerId);
       const def = LAYOUTS.find((x) => x.id === layout);
       if (!l || !def) return;
-      const { width: W } = ASPECT_SIZES[project.aspect];
+      const { width: W } = projectSize(project);
       const ratio = l.height / l.width;
       const maxPerRow = Math.max(...def.rows);
       const w = Math.min(l.width, (W * 0.94) / maxPerRow - 16);
@@ -466,7 +487,7 @@ export const useStore = create<State>((set, get) => {
       const { project, frame } = get();
       const a = project.assets.find((x) => x.id === assetId);
       if (!a) return;
-      const { width: W, height: H } = ASPECT_SIZES[project.aspect];
+      const { width: W, height: H } = projectSize(project);
       const aw = a.width ?? 500;
       const ah = a.height ?? 500;
       const fit = Math.min((W * 0.7) / aw, (H * 0.7) / ah, a.kind === 'image' && !a.src ? 1.5 : 10);
@@ -516,8 +537,8 @@ export const useStore = create<State>((set, get) => {
 
     setAspect: (aspect) =>
       commit((p) => {
-        if (p.aspect === aspect) return p;
-        const from = ASPECT_SIZES[p.aspect];
+        if (p.aspect === aspect && !p.size) return p;
+        const from = projectSize(p);
         const to = ASPECT_SIZES[aspect];
         const sx = to.width / from.width;
         const sy = to.height / from.height;
@@ -525,6 +546,7 @@ export const useStore = create<State>((set, get) => {
         return {
           ...p,
           aspect,
+          size: undefined,
           layers: p.layers.map((l) => {
             const full = l.type === 'background' || l.type === 'particles';
             const scaleKf = (prop: 'x' | 'y', f: number) => l.keyframes[prop]?.map((k) => ({ ...k, value: k.value * f }));

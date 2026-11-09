@@ -3,7 +3,7 @@ import type { WebRendererQuality } from '@remotion/web-renderer';
 import { useStore } from '../store';
 import { emptyProject } from '../lib/factory';
 import { checkExportSupport, exportMp4, getLicenseKey, LICENSE_KEY_STORAGE, verifyMp4, type ExportCheck } from '../lib/export';
-import { ASPECT_SIZES } from '../types';
+import { projectSize } from '../types';
 import { deleteProject, downloadBlob, loadProject, exportProjectFile, importProjectFile, listProjects, type ProjectSummary } from '../lib/storage';
 import { formatTime } from '../lib/player';
 import type { Aspect } from '../types';
@@ -72,7 +72,7 @@ const ExportModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [issues, setIssues] = useState<string[]>([]);
   const [license, setLicense] = useState(getLicenseKey());
   const abort = useRef<AbortController | null>(null);
-  const size = ASPECT_SIZES[project.aspect];
+  const size = projectSize(project);
   const fileName = `${project.name.replace(/[^\p{L}\p{N}_-]+/gu, '-') || 'slotolog'}-${size.width}x${size.height}.mp4`;
 
   useEffect(() => {
@@ -227,11 +227,16 @@ export const TopBar: React.FC = () => {
       </span>
 
       <div className="mx-auto flex items-center gap-1 rounded-md bg-[#121212] p-0.5">
+        {project.size && (
+          <span className="rounded bg-[#FF8E16] px-2.5 py-1 text-xs font-semibold text-black" title="Kaynak videonun orijinal oranı" data-testid="custom-size">
+            {project.size.width}×{project.size.height}
+          </span>
+        )}
         {(['9:16', '1:1', '16:9'] as Aspect[]).map((a) => (
           <button
             key={a}
             onClick={() => st.setAspect(a)}
-            className={`rounded px-2.5 py-1 text-xs font-semibold ${project.aspect === a ? 'bg-[#FF8E16] text-black' : 'text-neutral-400 hover:text-white'}`}
+            className={`rounded px-2.5 py-1 text-xs font-semibold ${project.aspect === a && !project.size ? 'bg-[#FF8E16] text-black' : 'text-neutral-400 hover:text-white'}`}
           >
             {a}
           </button>

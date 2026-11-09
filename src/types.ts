@@ -6,6 +6,26 @@ export const ASPECT_SIZES: Record<Aspect, { width: number; height: number }> = {
   '16:9': { width: 1920, height: 1080 },
 };
 
+/** canvas size of a project: a custom size (e.g. the source recording's own ratio) or the aspect preset */
+export const projectSize = (p: { aspect: Aspect; size?: { width: number; height: number } }) => p.size ?? ASPECT_SIZES[p.aspect];
+
+/** one part of a speed ramp: from this second of the source file until the next part starts */
+export interface SpeedSegment {
+  from: number;
+  speed: number;
+  /** game sound 0..1; empty = automatic (full at ~1×, muted when faster) */
+  volume?: number;
+  note?: string;
+}
+
+export interface SpeedRamp {
+  segments: SpeedSegment[];
+  /** source second where the clip ends */
+  end: number;
+  /** length of the smooth speed transitions in output seconds (0 = hard switch) */
+  smooth: number;
+}
+
 export type LayerType =
   | 'image'
   | 'video'
@@ -176,6 +196,8 @@ export interface Layer {
   depth?: number;
   /** video speed (0.25 – 4) */
   playbackRate?: number;
+  /** variable speed (speed ramp) for video layers; overrides trimStart / playbackRate */
+  speedRamp?: SpeedRamp;
   /** zoom inside the layer box (cropped): scale and focus point 0..1 */
   mediaZoom?: { scale: number; x: number; y: number; animate?: boolean };
   colorFilter?: 'none' | 'sepia' | 'bw' | 'warm';
@@ -253,6 +275,8 @@ export interface Project {
   id: string;
   name: string;
   aspect: Aspect;
+  /** custom canvas size (keeps a recording's original ratio); empty = aspect preset */
+  size?: { width: number; height: number };
   fps: number;
   durationInFrames: number;
   /** index 0 = bottom layer */

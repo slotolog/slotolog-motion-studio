@@ -10,14 +10,14 @@ import type {
   Project,
   TextSettings,
 } from '../types';
-import { ASPECT_SIZES, type Aspect } from '../types';
+import { projectSize, type Aspect } from '../types';
 
 export const BRAND = { orange: '#FF8E16', dark: '#1E1E1E' };
 
 export const uid = () => nanoid(10);
 
 export function baseLayer(partial: Partial<Layer> & Pick<Layer, 'type' | 'name'>, project: Project): Layer {
-  const { width, height } = ASPECT_SIZES[project.aspect];
+  const { width, height } = projectSize(project);
   return {
     id: uid(),
     visible: true,
@@ -114,12 +114,12 @@ export const defaultButton = (p: Partial<ButtonSettings> = {}): ButtonSettings =
 });
 
 export function backgroundLayer(project: Project, settings: BackgroundSettings, name = 'Hareketli arka plan'): Layer {
-  const { width, height } = ASPECT_SIZES[project.aspect];
+  const { width, height } = projectSize(project);
   return baseLayer({ type: 'background', name, width, height, background: { ...settings } }, project);
 }
 
 export function particlesLayer(project: Project, settings: ParticleSettings, name = 'Parçacıklar', partial: Partial<Layer> = {}): Layer {
-  const { width, height } = ASPECT_SIZES[project.aspect];
+  const { width, height } = projectSize(project);
   return baseLayer({ type: 'particles', name, width, height, particles: { ...settings, seed: Math.round(Math.random() * 1000) }, ...partial }, project);
 }
 
@@ -164,12 +164,12 @@ export function emptyProject(aspect: Aspect = '9:16', name = 'Yeni proje'): Proj
 
 /** Invisible camera: its effects / keyframes move the whole scene (with depth parallax). */
 export function cameraLayer(project: Project, partial: Partial<Layer> = {}): Layer {
-  const { width, height } = ASPECT_SIZES[project.aspect];
+  const { width, height } = projectSize(project);
   return baseLayer({ type: 'camera', name: 'Kamera', width, height, ...partial }, project);
 }
 
 export function frameLayer(project: Project, partial: Partial<Layer> = {}): Layer {
-  const { width, height } = ASPECT_SIZES[project.aspect];
+  const { width, height } = projectSize(project);
   return baseLayer(
     {
       type: 'frame',

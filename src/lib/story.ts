@@ -17,7 +17,7 @@ import type {
   SubtitleCue,
   SubtitleStyle,
 } from '../types';
-import { ASPECT_SIZES } from '../types';
+import { projectSize } from '../types';
 
 export const STORY_FIELDS: { key: StoryFieldKey; label: string; hint: string }[] = [
   { key: 'gameName', label: 'Oyun adı', hint: 'ör. Sweet Bonanza' },
@@ -333,7 +333,7 @@ function transitionFor(l: Layer, s: StoryScene, fps: number) {
 
 /** Video window of the frame (or the full screen when the frame is off). */
 export function videoWindow(p: Project) {
-  const { width, height } = ASPECT_SIZES[p.aspect];
+  const { width, height } = projectSize(p);
   const fr = p.layers.find((l) => l.type === 'frame' && l.frame);
   if (p.story?.frameEnabled !== false && fr?.frame) return fr.frame.window;
   return { x: width / 2, y: height / 2, w: width, h: height };

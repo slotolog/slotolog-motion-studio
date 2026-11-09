@@ -4,7 +4,7 @@ import { MainComposition } from '../remotion/Main';
 import { useStore } from '../store';
 import { propAt } from '../lib/anim';
 import { playerApi } from '../lib/player';
-import { ASPECT_SIZES, type Layer } from '../types';
+import { projectSize, type Layer } from '../types';
 
 const FULL = new Set(['background', 'particles', 'audio', 'camera', 'frame']);
 
@@ -38,7 +38,7 @@ export const Preview: React.FC = () => {
   const assetUrls = useStore((s) => s.assetUrls);
   const selectedId = useStore((s) => s.selectedId);
   const frame = useStore((s) => s.frame);
-  const { width: W, height: H } = ASPECT_SIZES[project.aspect];
+  const { width: W, height: H } = projectSize(project);
   const wrapRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<PlayerRef>(null);
   const [box, setBox] = useState({ w: 400, h: 400 });
