@@ -3,6 +3,7 @@ import { baseLayer, makeEffect, uid } from './lib/factory';
 import { propAt } from './lib/anim';
 import { getAssetBlob, saveAssetBlob, saveProject } from './lib/storage';
 import { multiplierTemplate } from './lib/templates';
+import type { LibraryItem } from './lib/library';
 import { BRAND_ASSETS, brandUrl, type BrandKey } from './lib/brand';
 import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project, ProjectAudio, SfxKey, SpeedRamp, StoryData } from './types';
 import { captureOverrides, rebuildStory, sceneStarts } from './lib/story';
@@ -57,6 +58,8 @@ interface State {
   addAssetFromFile: (file: File) => Promise<Asset>;
   addAssetLayer: (assetId: string, at?: { x: number; y: number }) => void;
   addBrandAsset: (key: BrandKey) => string;
+  /** copies a Varlık Kütüphanesi item into the project (once) and returns its asset id */
+  addLibraryAsset: (item: LibraryItem) => string;
   addSfxLayer: (key: SfxKey) => void;
   analyzing: string[];
   analyzeAsset: (assetId: string) => Promise<void>;
@@ -334,6 +337,16 @@ export const useStore = create<State>((set, get) => {
       if (!get().project.assets.some((x) => x.id === a.id)) commit((p) => ({ ...p, assets: [...p.assets, { ...a }] }));
       return a.id;
     },
+    addLibraryAsset: (item) => {
+      const have = get().project.assets.find((a) => a.libId === item.id);
+      if (have) return have.id;
+      const id = uid();
+      void saveAssetBlob(id, item.blob);
+      set({ assetUrls: { ...get().assetUrls, [id]: URL.createObjectURL(item.blob) } });
+      const asset: Asset = { id, name: item.name, kind: 'image', mime: item.mime, width: item.width, height: item.height, libId: item.id };
+      commit((p) => ({ ...p, assets: [...p.assets, asset] }));
+      return id;
+    },
     analyzeAsset: async (assetId) => {
       const url = get().assetUrls[assetId];
       if (!url || get().analyzing.includes(assetId)) return;
@@ -515,7 +528,8 @@ export const useStore = create<State>((set, get) => {
       const { width: W, height: H } = projectSize(project);
       const aw = a.width ?? 500;
       const ah = a.height ?? 500;
-      const fit = Math.min((W * 0.7) / aw, (H * 0.7) / ah, a.kind === 'image' && !a.src ? 1.5 : 10);
+      const box = a.libId ? 0.4 : 0.7; // library icons start as a smaller sticker
+      const fit = Math.min((W * box) / aw, (H * box) / ah, a.kind === 'image' && !a.src ? 1.5 : 10);
       const start = a.kind === 'image' ? 0 : Math.min(frame, project.durationInFrames - 1);
       const mediaFrames = a.duration ? Math.ceil(a.duration * project.fps) : project.durationInFrames;
       const l = baseLayer(

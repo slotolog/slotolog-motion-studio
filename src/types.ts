@@ -241,6 +241,8 @@ export interface Asset {
   src?: string;
   /** result of the automatic rhythm analysis (seconds in the source file) */
   analysis?: AudioAnalysis;
+  /** copied from the Varlık Kütüphanesi item with this id */
+  libId?: string;
 }
 
 export interface AudioAnalysis {

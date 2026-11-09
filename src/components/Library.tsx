@@ -21,6 +21,7 @@ import { BRAND_ASSETS, brandUrl, type BrandKey } from '../lib/brand';
 import { SFX, SFX_KEYS, sfxUrl } from '../lib/sfx';
 import type { BackgroundSettings, EffectType } from '../types';
 import { Btn } from './ui';
+import { DEFAULT_CATEGORY, LIBRARY_CATEGORIES, importToLibrary, listLibrary, removeLibraryItem, type LibraryItem } from '../lib/library';
 
 type Tab = 'media' | 'elements' | 'bg' | 'effects' | 'templates' | 'story';
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -40,6 +41,157 @@ const bgSwatch = (s: BackgroundSettings) =>
     : s.style === 'gradient'
       ? `linear-gradient(135deg, ${s.colorA}, ${s.colorB})`
       : `repeating-conic-gradient(from 0deg, ${s.rayColor}55 0deg 8deg, transparent 8deg 20deg), radial-gradient(circle, ${s.colorA}, ${s.colorB})`;
+
+
+/** Varlık Kütüphanesi: tarayıcıda kalıcı, kategorili görsel kütüphanesi (ZIP / toplu yükleme). */
+const AssetLibrary: React.FC<{ canApply: boolean; selectedId?: string }> = ({ canApply, selectedId }) => {
+  const [items, setItems] = useState<LibraryItem[]>([]);
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [category, setCategory] = useState(DEFAULT_CATEGORY);
+  const [open, setOpen] = useState<Record<string, boolean>>({ [DEFAULT_CATEGORY]: true });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [over, setOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const st = useStore.getState();
+
+  const refresh = async () => {
+    const list = await listLibrary();
+    setUrls((old) => {
+      const next: Record<string, string> = {};
+      for (const it of list) next[it.id] = old[it.id] ?? URL.createObjectURL(it.blob);
+      Object.entries(old).forEach(([id, u]) => !next[id] && URL.revokeObjectURL(u));
+      return next;
+    });
+    setItems(list);
+  };
+  React.useEffect(() => {
+    void refresh();
+  }, []);
+
+  const importFiles = async (files: FileList | File[]) => {
+    setBusy(true);
+    setMsg('');
+    try {
+      const { added, skipped } = await importToLibrary(Array.from(files), category);
+      setOpen((o) => ({ ...o, [category]: true }));
+      setMsg(`✓ ${added.length} görsel “${category}” kategorisine eklendi` + (skipped.length ? ` · ${skipped.length} dosya atlandı` : ''));
+      await refresh();
+    } catch (e) {
+      setMsg('✗ ' + (e as Error).message);
+    }
+    setBusy(false);
+  };
+
+  const cats = Array.from(new Set([...LIBRARY_CATEGORIES, ...items.map((i) => i.category)]));
+  return (
+    <div data-testid="asset-library" className="space-y-1.5">
+      <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#FF8E16]">Varlık kütüphanesi</h4>
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setOver(false);
+          if (e.dataTransfer.files.length) void importFiles(e.dataTransfer.files);
+        }}
+        className={`flex items-center gap-1 rounded-md border border-dashed p-1.5 ${over ? 'border-[#FF8E16] bg-[#FF8E16]/10' : 'border-white/15'}`}
+      >
+        <select value={category} onChange={(e) => setCategory(e.target.value)} data-testid="lib-category" className="min-w-0 flex-1 rounded border border-white/10 bg-[#121212] px-1 py-1 text-[11px]">
+          {cats.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+        <Btn small variant="primary" onClick={() => inputRef.current?.click()} disabled={busy}>
+          {busy ? 'Yükleniyor…' : '⬆ ZIP / Toplu yükle'}
+        </Btn>
+        <input
+          ref={inputRef}
+          data-testid="lib-upload"
+          type="file"
+          multiple
+          accept=".zip,application/zip,image/png,image/webp,image/jpeg,image/svg+xml,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) void importFiles(e.target.files);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      {msg && (
+        <p data-testid="lib-msg" className="text-[10px] text-neutral-400">
+          {msg}
+        </p>
+      )}
+      {cats
+        .filter((c) => items.some((i) => i.category === c))
+        .map((c) => {
+          const list = items.filter((i) => i.category === c);
+          // shorten tile labels: drop the words every item in the category starts with ("Slotolog Slot …")
+          const words = list.map((i) => i.name.split(' '));
+          let common = 0;
+          while (list.length > 1 && words.every((w) => w.length > common + 1 && w[common] === words[0][common])) common++;
+          const label = (n: string) => n.split(' ').slice(Math.max(0, common - 1)).join(' ');
+          const isOpen = open[c] ?? false;
+          return (
+            <div key={c} data-testid={`lib-cat-${c}`} className="rounded-md border border-white/10 bg-[#121212]">
+              <button className="flex w-full items-center justify-between px-2 py-1.5 text-[11px] font-semibold text-neutral-200" onClick={() => setOpen((o) => ({ ...o, [c]: !isOpen }))}>
+                <span>
+                  {isOpen ? '▾' : '▸'} {c}
+                </span>
+                <span className="text-neutral-500">{list.length}</span>
+              </button>
+              {isOpen && (
+                <div className="grid grid-cols-3 gap-1.5 p-1.5 pt-0">
+                  {list.map((it) => (
+                    <div
+                      key={it.id}
+                      draggable
+                      data-testid="lib-item"
+                      title={`${it.name} · ${it.width}×${it.height} — sahneye sürükle`}
+                      onDragStart={(e) => e.dataTransfer.setData('application/x-slotolog-asset', st.addLibraryAsset(it))}
+                      className="group relative overflow-hidden rounded border border-white/10 bg-[repeating-conic-gradient(#232323_0_25%,#1a1a1a_0_50%)] bg-[length:12px_12px] hover:border-[#FF8E16]"
+                    >
+                      <div className="flex aspect-square items-center justify-center p-1">
+                        {urls[it.id] && <img src={urls[it.id]} alt={it.name} className="max-h-full max-w-full object-contain" draggable={false} />}
+                      </div>
+                      <div className="truncate px-1 text-[9px] text-neutral-400">{label(it.name)}</div>
+                      <div className="absolute inset-x-0 top-0 hidden justify-end gap-0.5 p-0.5 group-hover:flex">
+                        <button title="Sahneye ekle" data-testid="lib-add" className="rounded bg-[#FF8E16] px-1 text-[10px] font-bold text-black" onClick={() => st.addAssetLayer(st.addLibraryAsset(it))}>
+                          +
+                        </button>
+                        {canApply && selectedId && (
+                          <button title="Seçili katmana uygula" className="rounded bg-[#2b2b2b] px-1 text-[10px] text-white" onClick={() => st.applyAssetToLayer(selectedId, st.addLibraryAsset(it))}>
+                            ⇄
+                          </button>
+                        )}
+                        <button
+                          title="Kütüphaneden sil"
+                          className="rounded bg-[#2b2b2b] px-1 text-[10px] text-white"
+                          onClick={async () => {
+                            if (confirm(`"${it.name}" kütüphaneden silinsin mi? (Kullanıldığı projeler etkilenmez)`)) {
+                              await removeLibraryItem(it.id);
+                              void refresh();
+                            }
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      <p className="text-[10px] text-neutral-500">Kütüphane bu tarayıcıda kalıcıdır ve tüm projelerde görünür. Sürükle ya da + ile ekle; boyut ve animasyonlar sağ panelden.</p>
+    </div>
+  );
+};
 
 const MediaTab: React.FC = () => {
   const assets = useStore((s) => s.project.assets);
@@ -92,6 +244,7 @@ const MediaTab: React.FC = () => {
           onChange={(e) => e.target.files && upload(e.target.files)}
         />
       </div>
+      <AssetLibrary canApply={!!canApply} selectedId={selected?.id} />
       <div data-testid="brand-assets">
         <h4 className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-[#FF8E16]">Slotolog marka varlıkları</h4>
         <div className="space-y-1.5">
