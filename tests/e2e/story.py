@@ -29,6 +29,7 @@ with sync_playwright() as p:
 
     # --- studio: recordings + markers (UI)
     pg.click('button:has-text("Hikâye")'); pg.click('[data-testid=open-story-studio]'); time.sleep(0.6)
+    pg.click('[data-testid=story-tab-recordings]'); time.sleep(0.3)
     pg.set_input_files('[data-testid=story-upload-video]', [VIDEO])
     pg.wait_for_selector('[data-testid=rec-player]', timeout=30000); time.sleep(1)
     pg.evaluate("document.querySelector('[data-testid=rec-player]').currentTime = 4.0"); time.sleep(0.5)
@@ -39,7 +40,7 @@ with sync_playwright() as p:
     ok(len(mk) == 2 and abs(mk[1]['time'] - 12.0) < 0.05 and mk[1]['bigWin'], f"işaretler: {[(m['label'], m['time']) for m in mk]}")
 
     # --- data fields (UI) -> data-bound layers
-    pg.click('[data-testid=story-studio] button:has-text("Veriler")'); time.sleep(0.3)
+    pg.click('[data-testid=story-tab-data]'); time.sleep(0.3)
     vals = {'gameName': 'Test Slot', 'betAmount': '20TL', 'totalWin': '84.250TL', 'freeSpinValue': '4TL'}
     for k, v in vals.items():
         pg.fill(f'[data-testid=field-{k}]', v)
@@ -75,7 +76,8 @@ with sync_playwright() as p:
     pg.evaluate(f"{S}.updateStory(s => {{ const a=[...s.scenes]; [a[1],a[2]]=[a[2],a[1]]; return {{...s, scenes:a}}; }})")
 
     # --- script (UI): split to scenes, estimate, fit
-    pg.click('[data-testid=story-studio] button:has-text("Senaryo ve Seslendirme")'); time.sleep(0.3)
+    pg.click('[data-testid=story-tab-script]'); time.sleep(0.3)
+    pg.click('summary:has-text("Tüm metni")'); time.sleep(0.2)
     script = 'Bu kazanca kimse inanmadı!\n\nPeki nasıl başladı?\n\nKüçük bir bahisle oyuna girdi.\n\nFree spinler birbirini takip etti.\n\nSon dönüşte büyük kazanç geldi!\n\nSen de hemen katıl.'
     pg.fill('[data-testid=script]', script)
     pg.click('[data-testid=split-script]'); time.sleep(0.3)
@@ -101,7 +103,7 @@ with sync_playwright() as p:
     pg.evaluate(f"{S}.updateStory(s=>({{...s, scenes: s.scenes.map((x,i)=> i===4 ? {{...x, voice: {{...x.voice, to: 7.5}}}} : x)}}))")
 
     # --- subtitles (UI)
-    pg.click('[data-testid=story-studio] button:has-text("Altyazı")'); time.sleep(0.3)
+    pg.click('[data-testid=story-tab-subs]'); time.sleep(0.3)
     pg.click('[data-testid=gen-subs]'); time.sleep(0.3)
     cues = pg.evaluate(f"{S}.project.story.subtitles.cues")
     ok(len(cues) >= 6, f'{len(cues)} altyazı oluşturuldu')
@@ -109,7 +111,7 @@ with sync_playwright() as p:
     ok(abs(c4['start'] - (7.5 + 0.4)) < 0.05, f"büyük kazanç cümlesi seslendirmeyle başlıyor ({c4['start']} sn)")
 
     # --- frame toggle
-    pg.click('[data-testid=story-studio] button:has-text("Çerçeve")'); time.sleep(0.3)
+    pg.click('[data-testid=story-tab-frame]'); time.sleep(0.3)
     pg.evaluate(f"{S}.updateStory(s=>({{...s, frameEnabled:false}}))")
     vis = pg.evaluate(f"{S}.project.layers.filter(l=>l.storyRole==='frame').map(l=>l.visible)")
     win_off = pg.evaluate(f"{S}.project.layers.find(l=>l.storyRole==='scene'&&l.type==='video').width")
@@ -117,7 +119,7 @@ with sync_playwright() as p:
     vis2 = pg.evaluate(f"{S}.project.layers.filter(l=>l.storyRole==='frame').map(l=>l.visible)")
     ok(vis and not any(vis) and all(vis2) and win_off == 1080, 'çerçeve kapatılınca kayıt tam ekran, açılınca geri geliyor')
 
-    pg.keyboard.press('Escape'); pg.locator('button[aria-label=Kapat]').first.click(); time.sleep(0.5)
+    pg.click('[data-testid=close-story-studio]'); time.sleep(0.5)
     # rendered text check: big win scene shows the entered amount, subtitle shows its sentence
     def seek(sec):
         fr = round(sec * 30); pg.evaluate(f"{S}.setFrame({fr})")

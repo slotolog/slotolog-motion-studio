@@ -9,9 +9,11 @@ import { Library } from './components/Library';
 import { Preview } from './components/Preview';
 import { Inspector } from './components/Inspector';
 import { Timeline } from './components/Timeline';
+import { StoryLeft, StoryRight } from './components/StoryStudio';
 
 export const App: React.FC = () => {
   const [ready, setReady] = useState(false);
+  const storyMode = useStore((s) => s.storyMode && !!s.project.story);
 
   useEffect(() => {
     (async () => {
@@ -79,13 +81,27 @@ export const App: React.FC = () => {
     <div className="flex h-full flex-col">
       <TopBar />
       <div className="flex min-h-0 flex-1">
-        <aside className="w-72 shrink-0 border-r border-white/10 bg-[#1a1a1a]">
-          <Library />
-        </aside>
-        <Preview />
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#1a1a1a]">
-          <Inspector />
-        </aside>
+        {storyMode ? (
+          <>
+            <aside className="w-[400px] shrink-0 border-r border-white/10 bg-[#1a1a1a]" data-testid="story-left">
+              <StoryLeft />
+            </aside>
+            <Preview />
+            <aside className="w-[360px] shrink-0 border-l border-white/10 bg-[#1a1a1a]">
+              <StoryRight />
+            </aside>
+          </>
+        ) : (
+          <>
+            <aside className="w-72 shrink-0 border-r border-white/10 bg-[#1a1a1a]">
+              <Library />
+            </aside>
+            <Preview />
+            <aside className="w-80 shrink-0 overflow-y-auto border-l border-white/10 bg-[#1a1a1a]">
+              <Inspector />
+            </aside>
+          </>
+        )}
       </div>
       <div className="h-64 shrink-0">
         <Timeline />

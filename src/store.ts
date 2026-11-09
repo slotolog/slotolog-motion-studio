@@ -5,7 +5,8 @@ import { getAssetBlob, saveAssetBlob, saveProject } from './lib/storage';
 import { multiplierTemplate } from './lib/templates';
 import { BRAND_ASSETS, brandUrl, type BrandKey } from './lib/brand';
 import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project, ProjectAudio, SfxKey, StoryData } from './types';
-import { rebuildStory, sceneStarts } from './lib/story';
+import { captureOverrides, rebuildStory, sceneStarts } from './lib/story';
+import { seek } from './lib/player';
 import { analyzeAudio, measurePeak, normalizeGain } from './lib/beats';
 import { projectAudio } from './lib/music';
 import { SFX } from './lib/sfx';
@@ -61,6 +62,14 @@ interface State {
   setAudio: (patch: Partial<ProjectAudio>) => void;
   /** change the story data and regenerate the scene layers */
   updateStory: (fn: (s: StoryData) => StoryData, record?: boolean) => void;
+  /** Story Studio workspace (scenes | preview | settings) */
+  storyMode: boolean;
+  selectedSceneId: string | null;
+  setStoryMode: (on: boolean) => void;
+  /** select a scene and move the preview to its start */
+  selectScene: (id: string) => void;
+  /** forget the user's edits of story layers whose slot starts with prefix (scene id, or scene:part) */
+  resetOverrides: (prefix: string) => void;
   addVoiceFile: (file: File) => Promise<Asset>;
   normalizeLayer: (layerId: string, targetDb?: number) => Promise<number | null>;
   setBeatGrid: (assetId: string, grid: { bpm: number; firstBeat: number; beatsPerBar?: number }) => void;
@@ -127,9 +136,11 @@ export const useStore = create<State>((set, get) => {
     }, 700);
   };
 
-  const commit = (fn: Updater, record = true) => {
+  const commit = (fn: Updater, record = true, opts: { rebuild?: boolean } = {}) => {
     const { project, past } = get();
-    const next = { ...fn(project), updatedAt: Date.now() };
+    let next = { ...fn(project), updatedAt: Date.now() };
+    // edits of story-generated layers are remembered per scene, so rebuilds keep them
+    if (next.story && !opts.rebuild) next = captureOverrides(project, next);
     set({
       project: next,
       past: record ? [...past, project].slice(-HISTORY_LIMIT) : past,
@@ -160,7 +171,7 @@ export const useStore = create<State>((set, get) => {
         const b = await getAssetBlob(a.id);
         if (b) urls[a.id] = URL.createObjectURL(b);
       }
-      set({ project: p, assetUrls: urls, selectedId: null, past: [], future: [], frame: 0 });
+      set({ project: p, assetUrls: urls, selectedId: null, past: [], future: [], frame: 0, selectedSceneId: null, storyMode: p.story ? get().storyMode : false });
       await saveProject(p);
       set({ saveState: 'saved' });
     },
@@ -187,24 +198,33 @@ export const useStore = create<State>((set, get) => {
       commit((p) => ({ ...p, layers: [...p.layers, l] }));
       set({ selectedId: l.id });
     },
-    updateLayer: (id, patch, record = true) =>
-      commit((p) => {
-        const l = p.layers.find((x) => x.id === id);
-        // story voice-over: moving / trimming it on the timeline updates the scene, then layers are rebuilt
-        if (l && p.story && l.storyRole === 'scene' && l.type === 'audio' && l.storySceneId && ('start' in patch || 'duration' in patch || 'trimStart' in patch)) {
-          const scenes = p.story.scenes;
-          const idx = scenes.findIndex((s) => s.id === l.storySceneId);
-          const sc = scenes[idx];
-          if (sc?.voice) {
-            const starts = sceneStarts(p.story);
-            const nl = { ...l, ...patch };
-            const from = nl.trimStart ?? sc.voice.from;
-            const voice = { ...sc.voice, from, to: from + nl.duration / p.fps, delay: Math.max(0, nl.start / p.fps - starts[idx]) };
-            return rebuildStory({ ...p, story: { ...p.story, scenes: scenes.map((s) => (s.id === sc.id ? { ...s, voice } : s)) } });
+    updateLayer: (id, patch, record = true) => {
+      const p0 = get().project;
+      const l0 = p0.layers.find((x) => x.id === id);
+      const voiceEdit =
+        !!l0 && !!p0.story && l0.storyRole === 'scene' && l0.type === 'audio' && !!l0.storySceneId && ('start' in patch || 'duration' in patch || 'trimStart' in patch);
+      commit(
+        (p) => {
+          const l = p.layers.find((x) => x.id === id);
+          // story voice-over: moving / trimming it on the timeline updates the scene, then layers are rebuilt
+          if (voiceEdit && l && p.story) {
+            const scenes = p.story.scenes;
+            const idx = scenes.findIndex((s) => s.id === l.storySceneId);
+            const sc = scenes[idx];
+            if (sc?.voice) {
+              const starts = sceneStarts(p.story);
+              const nl = { ...l, ...patch };
+              const from = nl.trimStart ?? sc.voice.from;
+              const voice = { ...sc.voice, from, to: from + nl.duration / p.fps, delay: Math.max(0, nl.start / p.fps - starts[idx]) };
+              return rebuildStory({ ...p, story: { ...p.story, scenes: scenes.map((s) => (s.id === sc.id ? { ...s, voice } : s)) } });
+            }
           }
-        }
-        return mapLayer(p, id, (x) => ({ ...x, ...patch }));
-      }, record),
+          return mapLayer(p, id, (x) => ({ ...x, ...patch }));
+        },
+        record,
+        { rebuild: voiceEdit },
+      );
+    },
     setLayerProp: (id, prop, value, record = true) =>
       commit(
         (p) =>
@@ -238,6 +258,11 @@ export const useStore = create<State>((set, get) => {
         }),
       ),
     removeLayer: (id) => {
+      // story-generated layers would come back on the next rebuild: hide them instead (kept as an edit)
+      if (get().project.layers.find((l) => l.id === id)?.storySlot) {
+        get().updateLayer(id, { visible: false });
+        return;
+      }
       commit((p) => ({ ...p, layers: p.layers.filter((l) => l.id !== id) }));
       if (get().selectedId === id) set({ selectedId: null });
     },
@@ -353,7 +378,24 @@ export const useStore = create<State>((set, get) => {
       return gain;
     },
     updateStory: (fn, record = true) =>
-      commit((p) => (p.story ? rebuildStory({ ...p, story: fn(p.story) }) : p), record),
+      commit((p) => (p.story ? rebuildStory({ ...p, story: fn(p.story) }) : p), record, { rebuild: true }),
+    storyMode: false,
+    selectedSceneId: null,
+    setStoryMode: (on) => set({ storyMode: on }),
+    selectScene: (id) => {
+      const p = get().project;
+      if (!p.story) return;
+      const i = p.story.scenes.findIndex((s) => s.id === id);
+      if (i < 0) return;
+      const frame = Math.min(p.durationInFrames - 1, Math.round(sceneStarts(p.story)[i] * p.fps) + 1);
+      set({ selectedSceneId: id, frame });
+      seek(frame);
+    },
+    resetOverrides: (prefix) =>
+      get().updateStory((st) => ({
+        ...st,
+        layerOverrides: Object.fromEntries(Object.entries(st.layerOverrides ?? {}).filter(([k]) => !k.startsWith(prefix))),
+      })),
     addVoiceFile: async (file) => {
       const a = await get().addAssetFromFile(file);
       return a;

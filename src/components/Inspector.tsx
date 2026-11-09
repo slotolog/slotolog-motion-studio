@@ -451,6 +451,20 @@ const MusicLayerSettings: React.FC<{ layer: Layer }> = ({ layer }) => {
   );
 };
 
+const StoryLayerNote: React.FC<{ slot: string }> = ({ slot }) => {
+  const has = useStore((s) => !!s.project.story?.layerOverrides?.[slot]);
+  return (
+    <div className="rounded bg-[#FF8E16]/10 p-1.5 text-[10px] text-[#FFB866]" data-testid="story-layer-note">
+      Hikâye sahnesi katmanı. Konum, boyut, renk ve animasyon değişikliklerin bu sahneye kalıcı kaydedilir; senaryo veya süre değişince korunur.
+      {has && (
+        <button className="ml-1 underline" onClick={() => useStore.getState().resetOverrides(slot)} data-testid="reset-layer-override">
+          Varsayılana döndür
+        </button>
+      )}
+    </div>
+  );
+};
+
 export const Inspector: React.FC = () => {
   const layer = useSelectedLayer();
   const fps = useStore((s) => s.project.fps);
@@ -485,8 +499,9 @@ export const Inspector: React.FC = () => {
         <Row label="Ad">
           <TextInput value={layer.name} onChange={(v) => up({ name: v })} />
         </Row>
-        {layer.storyRole === 'scene' && (
-          <p className="rounded bg-[#FF8E16]/10 p-1.5 text-[10px] text-[#FFB866]">Bu katman Hikâye Stüdyosu’ndaki sahneden üretilir; kalıcı değişiklikleri orada yap (burada yapılanlar sahne değişince yenilenir).</p>
+        {layer.storyRole === 'scene' && layer.storySlot && <StoryLayerNote slot={layer.storySlot} />}
+        {layer.storyRole === 'scene' && !layer.storySlot && (
+          <p className="rounded bg-[#FF8E16]/10 p-1.5 text-[10px] text-[#FFB866]">Bu katman Hikâye Stüdyosu’ndaki sahneden üretilir.</p>
         )}
         <div className="flex gap-4">
           <Toggle value={layer.visible} onChange={(v) => up({ visible: v })} label="Görünür" />

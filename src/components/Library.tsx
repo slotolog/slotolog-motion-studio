@@ -13,7 +13,6 @@ import {
   textLayer,
 } from '../lib/factory';
 import { TEMPLATES, bigWinStoryTemplate } from '../lib/templates';
-import { StoryStudio } from './StoryStudio';
 import { storyDuration, storyWarnings } from '../lib/story';
 import { deleteUserTemplate, listUserTemplates, saveUserTemplate, type UserTemplate } from '../lib/storage';
 import { rebuildStory } from '../lib/story';
@@ -342,7 +341,6 @@ const EffectsTab: React.FC = () => {
 
 const StoryTab: React.FC = () => {
   const project = useStore((s) => s.project);
-  const [open, setOpen] = useState(false);
   const st = project.story;
   if (!st)
     return (
@@ -356,7 +354,7 @@ const StoryTab: React.FC = () => {
   const w = storyWarnings(project);
   return (
     <div className="space-y-2 p-3 text-[11px] text-neutral-300">
-      <Btn variant="primary" className="w-full" onClick={() => setOpen(true)} data-testid="open-story-studio">
+      <Btn variant="primary" className="w-full" onClick={() => useStore.getState().setStoryMode(true)} data-testid="open-story-studio">
         🎬 Hikâye Stüdyosu’nu aç
       </Btn>
       <div className="rounded bg-[#141414] p-2">
@@ -372,7 +370,6 @@ const StoryTab: React.FC = () => {
         <li>Senaryo: metni yaz, sahnelere böl, ses kaydını eşleştir.</li>
         <li>Altyazıları oluştur, önizle, MP4 al.</li>
       </ol>
-      {open && <StoryStudio onClose={() => setOpen(false)} />}
     </div>
   );
 };

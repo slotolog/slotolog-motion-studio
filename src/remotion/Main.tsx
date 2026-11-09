@@ -146,10 +146,11 @@ const SubtitleLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
   const story = React.useContext(StoryContext);
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const cues = React.useMemo(() => (story ? story.subtitles.cues.map((c) => ({ ...c, text: fillTemplate(c.text, story.fields) })) : []), [story]);
   if (!story?.subtitles.enabled) return null;
   return (
     <div style={{ position: 'absolute', left: layer.x - layer.width / 2, top: layer.y - layer.height / 2, width: layer.width, height: layer.height }}>
-      <SubtitleView cues={story.subtitles.cues} style={layer.subtitleStyle ?? defaultSubtitleStyle()} t={(layer.start + frame) / fps} width={layer.width} height={layer.height} />
+      <SubtitleView cues={cues} style={layer.subtitleStyle ?? defaultSubtitleStyle()} t={(layer.start + frame) / fps} width={layer.width} height={layer.height} />
     </div>
   );
 };

@@ -106,6 +106,7 @@ export function defaultStory(): StoryData {
     frameEnabled: true,
     // on by default: a written voice-over is not a real player's testimonial unless the user says so
     dramatization: { enabled: true, text: 'CANLANDIRMADIR' },
+    narrationStyle: 'excited',
   };
 }
 
@@ -130,6 +131,47 @@ export function splitSentences(text: string): string[] {
     .filter(Boolean);
 }
 
+/** Speaking time of a text after its {field} placeholders are filled in. */
+export const speechTime = (story: StoryData, text: string) => estimateSpeech(fillTemplate(text, story.fields), story.wordsPerSecond);
+
+export interface SentenceTime {
+  index: number;
+  text: string;
+  /** seconds from the scene start */
+  start: number;
+  end: number;
+}
+
+/**
+ * Where each sentence of a scene's voice-over falls, relative to the scene start.
+ * With a voice recording the sentences share its length; otherwise the estimated speaking time.
+ * Timing is calculated, not recognised from the audio.
+ */
+export function sentenceTimes(story: StoryData, s: StoryScene): SentenceTime[] {
+  const sentences = splitSentences(s.voText);
+  if (!sentences.length) return [];
+  const t0 = s.voice?.assetId ? s.voice.delay : 0.15;
+  const total = s.voice?.assetId ? Math.max(0.1, s.voice.to - s.voice.from) : speechTime(story, s.voText);
+  const weights = sentences.map((x) => fillTemplate(x, story.fields).length + 4);
+  const sum = weights.reduce((a, b) => a + b, 0);
+  let t = t0;
+  return sentences.map((text, index) => {
+    const d = (total * weights[index]) / sum;
+    const r = { index, text, start: round2(t), end: round2(t + d) };
+    t += d;
+    return r;
+  });
+}
+
+/** second inside the scene where the linked game moment appears */
+export function hitTime(story: StoryData, s: StoryScene): number {
+  if (s.anchorSentence !== undefined) {
+    const st = sentenceTimes(story, s)[s.anchorSentence];
+    if (st) return Math.min(s.duration, st.start + 0.15);
+  }
+  return s.hitAt ?? (s.voice?.assetId ? s.voice.delay + 0.2 : s.duration * 0.6);
+}
+
 /** Paragraphs (blank line or ---) go to the scenes in order. */
 export function splitScriptToScenes(story: StoryData): StoryData {
   const parts = story.script
@@ -150,7 +192,7 @@ export function fitScenesToVoice(story: StoryData, voiceDur: (assetId: string) =
         const len = Math.max(0.1, s.voice.to - s.voice.from);
         return { ...s, duration: round1(Math.max(1, s.voice.delay + len + 0.4)) };
       }
-      if (s.voText.trim()) return { ...s, duration: round1(Math.max(1.5, estimateSpeech(s.voText, story.wordsPerSecond) + 0.6)) };
+      if (s.voText.trim()) return { ...s, duration: round1(Math.max(1.5, speechTime(story, s.voText) + 0.6)) };
       void voiceDur;
       return s;
     }),
@@ -163,28 +205,26 @@ export function generateSubtitles(story: StoryData, mode: 'sentence' | 'word'): 
   const starts = sceneStarts(story);
   const cues: SubtitleCue[] = [];
   story.scenes.forEach((s, i) => {
-    const text = s.voText.trim();
-    if (!text) return;
-    const t0 = starts[i] + (s.voice?.assetId ? s.voice.delay : 0.15);
-    const speak = s.voice?.assetId ? s.voice.to - s.voice.from : estimateSpeech(text, story.wordsPerSecond);
-    const avail = Math.max(0.5, Math.min(speak, s.duration - (t0 - starts[i]) - 0.1));
-    const units =
-      mode === 'sentence'
-        ? splitSentences(text)
-        : (() => {
-            const w = text.split(/\s+/).filter(Boolean);
-            const chunks: string[] = [];
-            for (let k = 0; k < w.length; k += 3) chunks.push(w.slice(k, k + 3).join(' '));
-            return chunks;
-          })();
-    const weights = units.map((u) => u.length + 4);
-    const total = weights.reduce((a, b) => a + b, 0);
-    let t = t0;
-    units.forEach((u, k) => {
-      const d = (avail * weights[k]) / total;
-      cues.push({ id: uid(), text: u, start: round2(t), end: round2(t + d) });
-      t += d;
-    });
+    for (const st of sentenceTimes(story, s)) {
+      const a = starts[i] + st.start;
+      const b = Math.min(starts[i] + s.duration - 0.05, starts[i] + st.end);
+      if (b <= a) continue;
+      if (mode === 'sentence') {
+        cues.push({ id: uid(), text: st.text, start: round2(a), end: round2(b) });
+        continue;
+      }
+      const w = st.text.split(/\s+/).filter(Boolean);
+      const chunks: string[] = [];
+      for (let k = 0; k < w.length; k += 3) chunks.push(w.slice(k, k + 3).join(' '));
+      const weights = chunks.map((c) => c.length + 2);
+      const sum = weights.reduce((x, y) => x + y, 0);
+      let t = a;
+      chunks.forEach((c, k) => {
+        const d = ((b - a) * weights[k]) / sum;
+        cues.push({ id: uid(), text: c, start: round2(t), end: round2(t + d) });
+        t += d;
+      });
+    }
   });
   return cues;
 }
@@ -223,7 +263,7 @@ export function storyWarnings(p: Project): StoryWarning[] {
       else if (s.voice.delay + len > s.duration + 0.05)
         out.push({ level: 'warn', text: `${name}: seslendirme (${(s.voice.delay + len).toFixed(1)} sn) sahneden uzun (${s.duration} sn) — sonraki sahneye taşar.`, sceneId: s.id });
     } else if (s.voText.trim()) {
-      const est = estimateSpeech(s.voText, st.wordsPerSecond);
+      const est = speechTime(st, s.voText);
       if (est > s.duration) out.push({ level: 'warn', text: `${name}: metnin tahmini okunma süresi ${est.toFixed(1)} sn, sahne ${s.duration} sn.`, sceneId: s.id });
     }
     const cap = s.caption + ' ' + (s.kind === 'outro' ? '{bonusAmount} {freeSpinCount}' : '');
@@ -238,6 +278,11 @@ export function storyWarnings(p: Project): StoryWarning[] {
     .forEach((l) => {
       if ((l.start + l.duration) / p.fps > total + 0.05) out.push({ level: 'warn', text: `Seslendirme “${l.name}” videonun sonundan sonra bitiyor.` });
     });
+  st.scenes.forEach((s, i) => {
+    if (/\[[^\]]+\]/.test(s.voText)) out.push({ level: 'warn', text: `Sahne ${i + 1} (${s.title}): metinde doldurulmamış [ ] alanı var — ekranda gerçekten olanı yaz.`, sceneId: s.id });
+    if (s.anchorSentence !== undefined && !sentenceTimes(st, s)[s.anchorSentence])
+      out.push({ level: 'warn', text: `Sahne ${i + 1} (${s.title}): oyun anına bağlı cümle artık yok (metin değişti).`, sceneId: s.id });
+  });
   const lastCue = st.subtitles.cues.reduce((a, c) => Math.max(a, c.end), 0);
   if (st.subtitles.enabled && lastCue > total + 0.05) out.push({ level: 'warn', text: 'Bazı altyazılar videonun sonundan sonra.' });
   if (st.dramatization.enabled === false && st.script.trim() && /\b(ben|kazandım|oynadım)\b/i.test(st.script))
@@ -249,7 +294,7 @@ export function storyWarnings(p: Project): StoryWarning[] {
 export function clipRange(p: Project, s: StoryScene): { in: number; out: number } {
   const m = s.markerId ? p.story?.markers.find((x) => x.id === s.markerId) : undefined;
   if (m) {
-    const hit = s.hitAt ?? (s.voice?.assetId ? s.voice.delay + 0.2 : s.duration * 0.6);
+    const hit = p.story ? hitTime(p.story, s) : (s.hitAt ?? s.duration * 0.6);
     const inn = Math.max(0, m.time - hit * s.clip.speed);
     return { in: inn, out: inn + s.duration * s.clip.speed };
   }
@@ -306,6 +351,12 @@ export function rebuildStory(p: Project): Project {
   const gen: Layer[] = [];
   const voice: Layer[] = [];
   const captions: Layer[] = [];
+  const ov = st.layerOverrides ?? {};
+  /** stable id + slot so the selection and the user's edits survive rebuilds */
+  const fin = (l: Layer, sceneId: string, part: string): Layer => {
+    const slot = `${sceneId}:${part}`;
+    return applyOverride({ ...l, id: `st-${slot}`, storySlot: slot, storySceneId: sceneId, storyRole: 'scene' }, ov[slot]);
+  };
   st.scenes.forEach((s, i) => {
     const start = Math.round(starts[i] * fps);
     const dur = Math.max(1, Math.round(starts[i] * fps + s.duration * fps) - start);
@@ -343,7 +394,7 @@ export function rebuildStory(p: Project): Project {
     }
     if (main) {
       transitionFor(main, s, fps);
-      gen.push(main);
+      gen.push(fin(main, s.id, 'clip'));
     }
     if (s.kind === 'outro' && !a) {
       // campaign card inside the video window
@@ -362,9 +413,9 @@ export function rebuildStory(p: Project): Project {
         return l;
       };
       gen.push(
-        mk('HOŞ GELDİN BONUSU', win.y - win.h * 0.22, 70, 'white', 0),
-        mk('{bonusAmount}', win.y - win.h * 0.05, 150, 'gold', 0.2),
-        mk('+ {freeSpinCount} FREE SPIN', win.y + win.h * 0.11, 92, 'gold', 0.4),
+        fin(mk('HOŞ GELDİN BONUSU', win.y - win.h * 0.22, 70, 'white', 0), s.id, 'outro0'),
+        fin(mk('{bonusAmount}', win.y - win.h * 0.05, 150, 'gold', 0.2), s.id, 'outro1'),
+        fin(mk('+ {freeSpinCount} FREE SPIN', win.y + win.h * 0.11, 92, 'gold', 0.4), s.id, 'outro2'),
       );
     }
     if (s.caption.trim()) {
@@ -385,22 +436,22 @@ export function rebuildStory(p: Project): Project {
       cap.effects = big
         ? [makeEffect('impact', fps, { duration: Math.round(0.6 * fps), intensity: 0.2 }), makeEffect('pulse', fps, { start: Math.round(0.6 * fps), duration: dur, speed: 0.7, intensity: 0.25 }), makeEffect('glow', fps, { start: Math.round(0.6 * fps), duration: dur, color: '#FFE27A', intensity: 0.5 })]
         : [makeEffect('flyIn', fps, { direction: 'left', duration: Math.round(0.5 * fps), intensity: 0.4 })];
-      captions.push(cap);
+      captions.push(fin(cap, s.id, 'caption'));
     }
     if (s.kind === 'bigwin' || s.kind === 'hook') {
-      const hitSec = s.markerId ? (s.hitAt ?? (s.voice?.assetId ? s.voice.delay + 0.2 : s.duration * 0.6)) : 0;
+      const hitSec = s.markerId ? hitTime(st, s) : 0;
       const b = particlesLayer(proj, { kind: 'burst', count: 34, speed: 1, size: 40, seed: 5 + i }, `${i + 1}. Altın patlaması`, {
         ...common,
         start: start + Math.round(hitSec * fps),
         duration: Math.max(1, Math.min(dur - Math.round(hitSec * fps), Math.round(2.6 * fps))),
       });
       b.particles!.seed = 5 + i;
-      captions.push(b);
+      captions.push(fin(b, s.id, 'burst'));
     }
     if (s.voice?.assetId) {
       const len = Math.max(0.1, s.voice.to - s.voice.from);
       voice.push(
-        baseLayer(
+        fin(baseLayer(
           {
             type: 'audio',
             name: `${i + 1}. Seslendirme`,
@@ -414,7 +465,7 @@ export function rebuildStory(p: Project): Project {
             storySceneId: s.id,
           },
           proj,
-        ),
+        ), s.id, 'voice'),
       );
     }
   });
@@ -438,3 +489,76 @@ export function rebuildStory(p: Project): Project {
     }),
   };
 }
+
+/* ---------------- persistent edits of story layers ---------------- */
+
+/** Properties of a story layer that the user may change and that survive rebuilds. */
+export const OVERRIDE_KEYS = [
+  'x', 'y', 'width', 'height', 'rotation', 'scale', 'opacity', 'visible', 'locked', 'keyframes', 'effects',
+  'shadow', 'motionBlur', 'depth', 'startSound', 'startSoundVolume', 'objectFit', 'button', 'particles', 'name', 'background', 'fadeIn', 'fadeOut',
+] as const;
+/** text appearance (the words themselves come from the scene) */
+const TEXT_STYLE_KEYS = ['fontSize', 'style', 'color', 'strokeColor', 'strokeWidth', 'extrude', 'italic'] as const;
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+export function applyOverride(l: Layer, o?: Partial<Layer>): Layer {
+  if (!o) return l;
+  const { text, ...rest } = o;
+  const out: Layer = { ...l, ...rest };
+  if (text && l.text) out.text = { ...l.text, ...Object.fromEntries(TEXT_STYLE_KEYS.filter((k) => k in text).map((k) => [k, text[k]])) };
+  return out;
+}
+
+/**
+ * Compares story layers before / after an edit and records what the user changed,
+ * so the next rebuild (script, timing, data changes) keeps it.
+ * A changed caption text goes back into the scene.
+ */
+export function captureOverrides(prev: Project, next: Project): Project {
+  const st = next.story;
+  if (!st) return next;
+  const before = new Map(prev.layers.filter((l) => l.storySlot).map((l) => [l.id, l]));
+  let overrides = st.layerOverrides ?? {};
+  let scenes = st.scenes;
+  let changed = false;
+  for (const l of next.layers) {
+    if (!l.storySlot) continue;
+    const p = before.get(l.id);
+    if (!p || p === l) continue;
+    const o: Partial<Layer> = { ...(overrides[l.storySlot] ?? {}) };
+    let touched = false;
+    for (const k of OVERRIDE_KEYS) {
+      if (!same(p[k], l[k])) {
+        (o as Record<string, unknown>)[k] = structuredClone(l[k]);
+        touched = true;
+      }
+    }
+    if (p.text && l.text) {
+      const ts: Record<string, unknown> = { ...((o.text as unknown as Record<string, unknown>) ?? {}) };
+      for (const k of TEXT_STYLE_KEYS) if (p.text[k] !== l.text[k]) ((ts[k] = l.text[k]), (touched = true));
+      if (Object.keys(ts).length) o.text = ts as unknown as Layer['text'];
+      const newText = l.textTemplate ?? l.text.text;
+      const oldText = p.textTemplate ?? p.text.text;
+      if (newText !== oldText && l.storySlot.endsWith(':caption')) {
+        scenes = scenes.map((s) => (s.id === l.storySceneId ? { ...s, caption: newText } : s));
+        changed = true;
+      }
+    }
+    if (touched) {
+      overrides = { ...overrides, [l.storySlot]: o };
+      changed = true;
+    }
+  }
+  return changed ? { ...next, story: { ...st, layerOverrides: overrides, scenes } } : next;
+}
+
+export const SLOT_LABELS: Record<string, string> = {
+  clip: 'Oyun kaydı',
+  caption: 'Ekran yazısı',
+  burst: 'Altın patlaması',
+  outro0: 'Kapanış yazısı 1',
+  outro1: 'Kapanış yazısı 2',
+  outro2: 'Kapanış yazısı 3',
+  voice: 'Seslendirme',
+};

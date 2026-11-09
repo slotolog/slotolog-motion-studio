@@ -184,6 +184,8 @@ export interface Layer {
   /** layers created / owned by the story module */
   storyRole?: StoryRole;
   storySceneId?: string;
+  /** stable slot of a story-generated layer (scene id + part); user edits are kept per slot */
+  storySlot?: string;
   frame?: FrameSettings;
   subtitleStyle?: SubtitleStyle;
   text?: TextSettings;
@@ -342,6 +344,8 @@ export interface StoryScene {
   voText: string;
   voice?: StoryVoicePart;
   colorFilter?: Layer['colorFilter'];
+  /** index of the voice-over sentence that is linked to the marked game moment */
+  anchorSentence?: number;
 }
 
 export interface StoryMarker {
@@ -370,4 +374,9 @@ export interface StoryData {
   subtitles: { enabled: boolean; mode: 'sentence' | 'word'; cues: SubtitleCue[] };
   frameEnabled: boolean;
   dramatization: { enabled: boolean; text: string };
+  narrationStyle?: NarrationStyle;
+  /** user edits of story-generated layers, kept across rebuilds (key = layer.storySlot) */
+  layerOverrides?: Record<string, Partial<Layer>>;
 }
+
+export type NarrationStyle = 'excited' | 'story' | 'cinematic';
