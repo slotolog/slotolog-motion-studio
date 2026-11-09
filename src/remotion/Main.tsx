@@ -21,9 +21,9 @@ const COLOR_FILTERS: Record<string, string | undefined> = {
 };
 import { drawCoin } from './draw';
 
-type Mix = Pick<ProjectAudio, 'musicVolume' | 'sfxVolume' | 'musicMuted' | 'sfxMuted' | 'voiceVolume' | 'voiceMuted' | 'duckMusic'>;
+type Mix = Pick<ProjectAudio, 'musicVolume' | 'sfxVolume' | 'musicMuted' | 'sfxMuted' | 'voiceVolume' | 'voiceMuted' | 'duckMusic' | 'duckGame'>;
 
-const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput['shine']; fps: number }> = ({ layer, url, shine, fps }) => {
+const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput['shine']; fps: number; duck?: (layerFrame: number) => number }> = ({ layer, url, shine, fps, duck }) => {
   switch (layer.type) {
     case 'image':
       // layers with a light-reflection effect are drawn on a canvas
@@ -35,14 +35,15 @@ const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput[
         <Placeholder label="Görsel bulunamadı" />
       );
     case 'video':
-      if (url && layer.speedRamp) return <RampVideo layer={layer} url={url} fps={fps} />;
+      if (url && layer.rewind) return <RewindVideo layer={layer} url={url} fps={fps} />;
+      if (url && layer.speedRamp) return <RampVideo layer={layer} url={url} fps={fps} duck={duck} />;
       return url ? (
         <Video
           src={url}
           objectFit={layer.objectFit ?? 'cover'}
           muted={layer.muted}
           loop={!!layer.loop}
-          volume={layer.volume ?? 1}
+          volume={duck ? (f: number) => (layer.volume ?? 1) * duck(f) : (layer.volume ?? 1)}
           trimBefore={layer.trimStart ? Math.round(layer.trimStart * fps) : undefined}
           playbackRate={layer.playbackRate ?? 1}
           style={{ width: '100%', height: '100%' }}
@@ -66,7 +67,7 @@ const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput[
 };
 
 /** variable speed: consecutive constant-speed pieces of the same file, nothing skipped */
-const RampVideo: React.FC<{ layer: Layer; url: string; fps: number }> = ({ layer, url, fps }) => {
+const RampVideo: React.FC<{ layer: Layer; url: string; fps: number; duck?: (layerFrame: number) => number }> = ({ layer, url, fps, duck }) => {
   const pieces = useMemo(() => expandRamp(layer.speedRamp!, fps), [layer.speedRamp, fps]);
   const base = layer.muted ? 0 : (layer.volume ?? 1);
   const fade = Math.max(2, Math.round(0.12 * fps));
@@ -88,7 +89,7 @@ const RampVideo: React.FC<{ layer: Layer; url: string; fps: number }> = ({ layer
                 let k = v;
                 if (prev < p.volume && f < fade) k *= f / fade;
                 if (next < p.volume && f > p.len - fade) k *= Math.max(0, (p.len - f) / fade);
-                return k;
+                return duck ? k * duck(p.out0 + f) : k;
               }}
               style={{ width: '100%', height: '100%' }}
             />
@@ -96,6 +97,35 @@ const RampVideo: React.FC<{ layer: Layer; url: string; fps: number }> = ({ layer
         );
       })}
     </>
+  );
+};
+
+/** rewind: the footage runs backwards at high speed (eased), with an optional VHS look */
+const RewindVideo: React.FC<{ layer: Layer; url: string; fps: number }> = ({ layer, url, fps }) => {
+  const frame = useCurrentFrame();
+  const { from, to, vhs = true } = layer.rewind!;
+  const n = Math.max(1, layer.duration);
+  const ease = (x: number) => x * x * (3 - 2 * x);
+  const srcAt = (f: number) => from + (to - from) * ease(Math.min(1, f / Math.max(1, n - 1)));
+  const band = ((frame * 37) % 100) / 100;
+  return (
+    <AbsoluteFill>
+      {Array.from({ length: n }, (_, f) => (
+        <Sequence key={f} from={f} durationInFrames={1} premountFor={Math.round(fps * 0.4)}>
+          <Video src={url} muted objectFit={layer.objectFit ?? 'cover'} trimBefore={Math.max(0, Math.round(srcAt(f) * fps))} style={{ width: '100%', height: '100%' }} />
+        </Sequence>
+      ))}
+      {vhs && (
+        <AbsoluteFill style={{ pointerEvents: 'none' }}>
+          <AbsoluteFill style={{ background: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0px, rgba(0,0,0,0.22) 2px, transparent 2px, transparent 5px)' }} />
+          <AbsoluteFill style={{ background: 'linear-gradient(90deg, rgba(255,0,80,0.10), transparent 30%, transparent 70%, rgba(0,200,255,0.10))', mixBlendMode: 'screen' }} />
+          <div style={{ position: 'absolute', left: 0, right: 0, top: `${band * 100}%`, height: '7%', background: 'rgba(255,255,255,0.18)', filter: 'blur(3px)' }} />
+          <div style={{ position: 'absolute', left: '6%', top: '4%', fontFamily: 'Arial Black, Arial, sans-serif', fontWeight: 900, fontSize: Math.round(layer.width * 0.11), color: '#fff', textShadow: '2px 2px 0 rgba(0,0,0,0.6)', opacity: Math.floor(frame / 6) % 2 ? 1 : 0.65 }}>
+            ◀◀
+          </div>
+        </AbsoluteFill>
+      )}
+    </AbsoluteFill>
   );
 };
 
@@ -203,12 +233,13 @@ function duckAt(ranges: [number, number][], f: number, fps: number) {
   return k;
 }
 
-const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; music: MusicSync | null; mix: Mix; voiceRanges?: [number, number][] }> = ({
+const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; music: MusicSync | null; mix: Mix; voiceRanges?: [number, number][]; gameRanges?: [number, number][] }> = ({
   layer,
   assetUrls,
   music,
   mix,
   voiceRanges = [],
+  gameRanges = [],
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -336,7 +367,7 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
         )}
         <div style={{ position: 'absolute', inset: 0, filter: filters.length ? filters.join(' ') : undefined }}>
           <MediaZoom layer={layer}>
-            <LayerContent layer={layer} url={url} shine={fx.shine} fps={fps} />
+            <LayerContent layer={layer} url={url} shine={fx.shine} fps={fps} duck={gameRanges.length && layer.type === 'video' ? (f: number) => duckAt(gameRanges, layer.start + f, fps) : undefined} />
           </MediaZoom>
         </div>
       </div>
@@ -380,6 +411,14 @@ export const MainComposition: React.FC<CompositionProps> = ({ project, assetUrls
         : project.layers.filter((l) => l.visible && l.type === 'audio' && l.channel === 'voice').map((l) => [l.start, l.start + l.duration]),
     [project.layers, mix.duckMusic, mix.voiceMuted],
   );
+  // same, used to lower the game sound of videos (optional)
+  const gameRanges = useMemo<[number, number][]>(
+    () =>
+      !mix.duckGame || mix.voiceMuted
+        ? []
+        : project.layers.filter((l) => l.visible && l.type === 'audio' && l.channel === 'voice').map((l) => [l.start, l.start + l.duration]),
+    [project.layers, mix.duckGame, mix.voiceMuted],
+  );
   const cam = cameraAt(project.layers, frame, fps, { width, height }, music);
 
   return (
@@ -389,7 +428,7 @@ export const MainComposition: React.FC<CompositionProps> = ({ project, assetUrls
         if (!layer.visible || layer.type === 'camera') return null;
         const seq = (
           <Sequence from={layer.start} durationInFrames={Math.max(1, layer.duration)} name={layer.name}>
-            <LayerView layer={layer} assetUrls={assetUrls} music={music} mix={mix} voiceRanges={voiceRanges} />
+            <LayerView layer={layer} assetUrls={assetUrls} music={music} mix={mix} voiceRanges={voiceRanges} gameRanges={gameRanges} />
           </Sequence>
         );
         if (!cam) {

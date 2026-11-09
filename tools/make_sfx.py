@@ -103,3 +103,14 @@ for st_s, fs in chords:
         b = bell(f0, 1.1, decay=4.2)
         x[st: st + len(b)] += b[: len(x) - st] * 0.5
 save('button.wav', reverb(x, 0.35, tail=0.6), -6)
+
+# 7) rewind: tape rewinding — a fast warbling whirr that speeds up and stops, over hiss
+d = 1.5; t = t_axis(d)
+speed = np.sin(np.pi * np.clip(t / d, 0, 1)) ** 0.7          # spool speeds up, then brakes
+f = 180 + 1400 * speed + 90 * np.sin(2 * np.pi * 23 * t) * speed
+ph = 2 * np.pi * np.cumsum(f) / SR
+whirr = np.sign(np.sin(ph)) * 0.25 + np.sin(ph) * 0.5 + 0.2 * np.sin(2.01 * ph)
+hiss = bandpass_sweep(rng.standard_normal(len(t)), 2500, 6000, q=1.4)
+chatter = (np.sin(2 * np.pi * 38 * t) > 0.6) * speed
+env = np.clip(t / 0.06, 0, 1) * np.clip((d - t) / 0.12, 0, 1)
+save('rewind.wav', (0.55 * whirr * speed + 0.45 * hiss * (0.4 + speed) + 0.12 * chatter * hiss) * env, -8)

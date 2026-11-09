@@ -68,7 +68,7 @@ export const SpeedRampEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
               ) : (
                 <NumInput value={s.from} step={0.1} digits={2} min={r.segments[i - 1].from + 0.05} max={end - 0.05} onChange={(v) => updSeg(i, { from: v })} />
               )}
-              <NumInput value={s.speed} step={0.25} digits={2} min={0.25} max={16} onChange={(v) => updSeg(i, { speed: v })} />
+              <NumInput value={s.speed} step={0.25} digits={2} min={0.1} max={16} onChange={(v) => updSeg(i, { speed: v })} />
               <input
                 className="w-full rounded border border-white/10 bg-[#121212] px-1 py-0.5 text-[10px]"
                 placeholder={`${Math.round(autoVolume(s.speed) * 100)}`}
@@ -113,8 +113,46 @@ export const SpeedRampEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
         <span>sn (0 = keskin)</span>
       </div>
       <p className="mt-1 text-[10px] leading-relaxed text-neutral-500">
-        Geçişler hep hızlı bölümün görüntüsünden yapılır; yavaş (önemli) bölüm tam hızında kalır. Zaman çizelgesinde bölüm sınırlarını sürükleyebilirsin. Hızlandırılmış bölümlerde oyun sesi otomatik kısılır.
+        Geçişler hep hızlı bölümün görüntüsünden yapılır; yavaş (önemli) bölüm tam hızında kalır. Zaman çizelgesinde bölüm sınırlarını sürükleyebilirsin. Hızlandırılmış veya yavaşlatılmış bölümlerde oyun sesi otomatik kısılır (1× dışındaki hızlarda ses perdesi bozulur).
       </p>
+    </Section>
+  );
+};
+
+/** Inspector section: rewind (footage runs backwards) */
+export const RewindEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
+  const fps = useStore((s) => s.project.fps);
+  const asset = useStore((s) => s.project.assets.find((a) => a.id === layer.assetId));
+  const up = (patch: Partial<Layer>) => useStore.getState().updateLayer(layer.id, patch);
+  const rw = layer.rewind;
+  if (!rw)
+    return (
+      <Section title="Geri sarma efekti">
+        <p className="text-[11px] text-neutral-500">Bu katman, kaydı geriye doğru hızla sarar (VHS görünümüyle). Süresini zaman çizelgesinden ayarlarsın.</p>
+        <Btn small data-testid="rewind-enable" onClick={() => up({ rewind: { from: asset?.duration ?? 10, to: 0, vhs: true }, speedRamp: undefined, startSound: 'rewind' })}>
+          Geri sarma yap
+        </Btn>
+      </Section>
+    );
+  return (
+    <Section title="Geri sarma efekti">
+      <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-400">
+        <label>
+          Kayıttaki başlangıç (sn)
+          <NumInput value={rw.from} step={0.5} digits={1} min={0} onChange={(v) => up({ rewind: { ...rw, from: v } })} />
+        </label>
+        <label>
+          Sarılacağı yer (sn)
+          <NumInput value={rw.to} step={0.5} digits={1} min={0} onChange={(v) => up({ rewind: { ...rw, to: v } })} />
+        </label>
+      </div>
+      <div className="mt-1 flex items-center gap-2 text-[11px] text-neutral-400">
+        <input type="checkbox" checked={rw.vhs !== false} onChange={(e) => up({ rewind: { ...rw, vhs: e.target.checked } })} /> VHS görünümü (◀◀, tarama çizgileri)
+      </div>
+      <div className="mt-1 text-[10px] text-neutral-500">Süre: {(layer.duration / fps).toFixed(2)} sn</div>
+      <Btn small className="mt-1" onClick={() => up({ rewind: undefined })}>
+        Geri sarmayı kaldır
+      </Btn>
     </Section>
   );
 };

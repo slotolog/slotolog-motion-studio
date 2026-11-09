@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSelectedLayer, useStore } from '../store';
-import { SpeedRampEditor } from './SpeedRampEditor';
+import { RewindEditor, SpeedRampEditor } from './SpeedRampEditor';
 import { BEAT_TRIGGER_EFFECTS, EASING_LABELS, EFFECT_META, LOOPING_EFFECTS, MUSIC_EFFECTS, propAt } from '../lib/anim';
 import { SFX, SFX_KEYS } from '../lib/sfx';
 import { projectAudio } from '../lib/music';
@@ -244,6 +244,7 @@ const AudioSettings: React.FC = () => {
       </Row>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         <Toggle value={a.duckMusic !== false} onChange={(v) => st.setAudio({ duckMusic: v })} label="Seslendirmede müziği kıs" />
+        <Toggle value={!!a.duckGame} onChange={(v) => st.setAudio({ duckGame: v })} label="Seslendirmede oyun (video) sesini kıs" />
         <Toggle value={!!a.voiceMuted} onChange={(v) => st.setAudio({ voiceMuted: v })} label="Seslendirmeyi kapat" />
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -746,7 +747,8 @@ export const Inspector: React.FC = () => {
           )}
         </Section>
       )}
-      {layer.type === 'video' && <SpeedRampEditor layer={layer} />}
+      {layer.type === 'video' && !layer.rewind && <SpeedRampEditor layer={layer} />}
+      {layer.type === 'video' && !layer.speedRamp && <RewindEditor layer={layer} />}
       {layer.type === 'audio' && <MusicLayerSettings layer={layer} />}
       {(layer.type === 'video' || layer.type === 'audio') && (
         <Section title="Ses">

@@ -9,6 +9,7 @@ export const SFX: Record<SfxKey, { name: string; src: string; duration: number }
   sparkle: { name: 'Sparkle (ışık geçişi)', src: 'sfx/sparkle.wav', duration: 1.4 },
   riser: { name: 'Yükseliş (yazı girişi)', src: 'sfx/riser.wav', duration: 1.05 },
   button: { name: 'Buton (ta-da)', src: 'sfx/button.wav', duration: 1.9 },
+  rewind: { name: 'Geri sarma (bant)', src: 'sfx/rewind.wav', duration: 1.5 },
 };
 
 export const SFX_KEYS = Object.keys(SFX) as SfxKey[];

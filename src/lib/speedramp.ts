@@ -26,8 +26,8 @@ export interface RampPiece {
 
 const STEPS = 5;
 
-/** default game sound: full at normal speed, muted when sped up (pitch would be distorted) */
-export const autoVolume = (speed: number) => (speed <= 1.05 ? 1 : 0);
+/** default game sound: full at normal speed, muted when sped up or slowed down (pitch would be distorted) */
+export const autoVolume = (speed: number) => (speed >= 0.95 && speed <= 1.05 ? 1 : 0);
 
 export function normalizeRamp(r: SpeedRamp): SpeedRamp {
   const segs = [...r.segments]

@@ -21,8 +21,8 @@ with sync_playwright() as p:
         pg.locator('[data-stage]').screenshot(path=f'{out}/bp2_{sec}.png')
     # sound library visible and sfx files reachable
     pg.click('button:has-text("Medya")'); time.sleep(0.3)
-    assert pg.locator('[data-testid=sfx-library] button:has-text("Ekle")').count() == 6
-    codes = pg.evaluate("Promise.all(['whoosh','bounce','coins','sparkle','riser','button'].map(k=>fetch('sfx/'+k+'.wav').then(r=>r.status)))")
+    assert pg.locator('[data-testid=sfx-library] button:has-text("Ekle")').count() == 7  # whoosh, bounce, coins, sparkle, riser, button, rewind
+    codes = pg.evaluate("Promise.all(['whoosh','bounce','coins','sparkle','riser','button','rewind'].map(k=>fetch('sfx/'+k+'.wav').then(r=>r.status)))")
     print('sfx http:', codes); assert all(c == 200 for c in codes)
     assert not errs, errs
     print('BOMB PARTY 2 OK')

@@ -77,7 +77,7 @@ export type EffectType =
   | 'beatJump'
   | 'beatTurn';
 
-export type SfxKey = 'whoosh' | 'bounce' | 'coins' | 'sparkle' | 'riser' | 'button';
+export type SfxKey = 'whoosh' | 'bounce' | 'coins' | 'sparkle' | 'riser' | 'button' | 'rewind';
 export type ZoomMode = 'in' | 'out' | 'inout';
 
 export type Direction = 'left' | 'right' | 'top' | 'bottom';
@@ -198,6 +198,8 @@ export interface Layer {
   playbackRate?: number;
   /** variable speed (speed ramp) for video layers; overrides trimStart / playbackRate */
   speedRamp?: SpeedRamp;
+  /** rewind effect for video layers: scrubs the source backwards from → to (seconds) over the layer */
+  rewind?: { from: number; to: number; vhs?: boolean };
   /** zoom inside the layer box (cropped): scale and focus point 0..1 */
   mediaZoom?: { scale: number; x: number; y: number; animate?: boolean };
   colorFilter?: 'none' | 'sepia' | 'bw' | 'warm';
@@ -266,6 +268,8 @@ export interface ProjectAudio {
   voiceMuted?: boolean;
   /** lower the music while the voice-over speaks (default on) */
   duckMusic?: boolean;
+  /** lower the game sound of video layers while the voice-over speaks (default off) */
+  duckGame?: boolean;
   /** music-synced animations on/off */
   syncEnabled: boolean;
   sections: MusicSection[];
