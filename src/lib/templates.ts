@@ -584,8 +584,8 @@ export function bigWinFrameTemplate(): Project {
   const btn = buttonLayer(p, 'BONUSU AL', { name: 'Buton: BONUSU AL', y: 1748, width: 540, height: 116 });
   btn.button = { ...btn.button!, fontSize: 60, colorTop: '#FFD45A', colorBottom: '#FF7A00', textColor: '#FFFFFF' };
   btn.effects = [makeEffect('pulse', 30, { duration: D, speed: 1.1, intensity: 0.45 }), makeEffect('glow', 30, { duration: D, color: '#FFD45A', speed: 1.1, intensity: 0.4 })];
-  const legal = textLayer(p, { text: '18+ · Sorumlu oyna · Kampanya koşulları geçerlidir', fontSize: 27, style: 'solid', color: '#E8E8E8', strokeColor: '#000000', strokeWidth: 3, extrude: false }, {
-    name: 'Yasal not (18+ / sorumlu oyun)', y: 1872, width: 1040, height: 40,
+  const legal = textLayer(p, { text: '18+ · Sorumlu oyna · Kampanya koşulları geçerlidir', fontSize: 33, style: 'solid', color: '#FFFFFF', strokeColor: '#000000', strokeWidth: 4, extrude: false }, {
+    name: 'Yasal not (18+ / sorumlu oyun)', y: 1874, width: 1040, height: 46,
   });
   const subs = baseLayer(
     {
