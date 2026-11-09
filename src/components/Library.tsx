@@ -12,19 +12,25 @@ import {
   particlesLayer,
   textLayer,
 } from '../lib/factory';
-import { TEMPLATES } from '../lib/templates';
+import { TEMPLATES, bigWinStoryTemplate } from '../lib/templates';
+import { StoryStudio } from './StoryStudio';
+import { storyDuration, storyWarnings } from '../lib/story';
+import { deleteUserTemplate, listUserTemplates, saveUserTemplate, type UserTemplate } from '../lib/storage';
+import { rebuildStory } from '../lib/story';
+import { uid } from '../lib/factory';
 import { BRAND_ASSETS, brandUrl, type BrandKey } from '../lib/brand';
 import { SFX, SFX_KEYS, sfxUrl } from '../lib/sfx';
 import type { BackgroundSettings, EffectType } from '../types';
 import { Btn } from './ui';
 
-type Tab = 'media' | 'elements' | 'bg' | 'effects' | 'templates';
+type Tab = 'media' | 'elements' | 'bg' | 'effects' | 'templates' | 'story';
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'media', label: 'Medya', icon: '📁' },
   { id: 'elements', label: 'Öğeler', icon: '✚' },
   { id: 'bg', label: 'Arka plan', icon: '▦' },
   { id: 'effects', label: 'Efektler', icon: '✦' },
   { id: 'templates', label: 'Şablonlar', icon: '★' },
+  { id: 'story', label: 'Hikâye', icon: '🎬' },
 ];
 
 const bgSwatch = (s: BackgroundSettings) =>
@@ -334,6 +340,101 @@ const EffectsTab: React.FC = () => {
   );
 };
 
+const StoryTab: React.FC = () => {
+  const project = useStore((s) => s.project);
+  const [open, setOpen] = useState(false);
+  const st = project.story;
+  if (!st)
+    return (
+      <div className="space-y-2 p-3 text-[11px] text-neutral-400">
+        <p>Bu proje bir “Büyük Kazanç Hikâyesi” projesi değil.</p>
+        <Btn variant="primary" className="w-full" onClick={() => useStore.getState().loadIntoEditor(bigWinStoryTemplate())} data-testid="new-story">
+          🎬 Yeni Büyük Kazanç Hikâyesi
+        </Btn>
+      </div>
+    );
+  const w = storyWarnings(project);
+  return (
+    <div className="space-y-2 p-3 text-[11px] text-neutral-300">
+      <Btn variant="primary" className="w-full" onClick={() => setOpen(true)} data-testid="open-story-studio">
+        🎬 Hikâye Stüdyosu’nu aç
+      </Btn>
+      <div className="rounded bg-[#141414] p-2">
+        <div>
+          {st.scenes.length} sahne · {storyDuration(st).toFixed(1)} sn · {st.markers.length} işaret · {st.subtitles.cues.length} altyazı
+        </div>
+        {w.length > 0 ? <div className="mt-1 text-yellow-400">⚠ {w.length} uyarı (Stüdyo’da gör)</div> : <div className="mt-1 text-green-400">✓ Uyarı yok</div>}
+      </div>
+      <ol className="list-decimal space-y-1 pl-4 text-neutral-400">
+        <li>Oyun kaydını yükle, önemli anları işaretle.</li>
+        <li>Veriler: oyun adı, bahis, kazanç, bonus…</li>
+        <li>Sahneler: kayıt aralıklarını / işaretleri seç.</li>
+        <li>Senaryo: metni yaz, sahnelere böl, ses kaydını eşleştir.</li>
+        <li>Altyazıları oluştur, önizle, MP4 al.</li>
+      </ol>
+      {open && <StoryStudio onClose={() => setOpen(false)} />}
+    </div>
+  );
+};
+
+const UserTemplates: React.FC = () => {
+  const [items, setItems] = useState<UserTemplate[]>([]);
+  const [name, setName] = useState('');
+  const refresh = () => listUserTemplates().then(setItems);
+  React.useEffect(() => {
+    refresh();
+  }, []);
+  const project = useStore((s) => s.project);
+  return (
+    <div className="space-y-1.5 border-t border-white/10 pt-3" data-testid="user-templates">
+      <h4 className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">Kendi şablonlarım</h4>
+      <div className="flex gap-1">
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={project.name} className="min-w-0 flex-1 rounded border border-white/10 bg-[#121212] px-2 text-xs" />
+        <Btn
+          small
+          variant="primary"
+          data-testid="save-template"
+          onClick={async () => {
+            await saveUserTemplate(project, name.trim() || project.name);
+            setName('');
+            refresh();
+          }}
+        >
+          Kaydet
+        </Btn>
+      </div>
+      <p className="text-[10px] text-neutral-500">Mevcut düzen şablon olur. Yüklediğin oyun kayıtları ve ses dosyaları şablona girmez; her yeni videoda yenisini yüklersin.</p>
+      {items.map((t) => (
+        <div key={t.id} className="flex items-center gap-1 rounded border border-white/10 bg-[#141414] px-2 py-1.5">
+          <span className="min-w-0 flex-1 truncate text-xs text-neutral-200">{t.name}</span>
+          <Btn
+            small
+            onClick={() => {
+              const p = structuredClone(t.project);
+              const fresh = { ...p, id: uid(), name: t.name, updatedAt: Date.now() };
+              useStore.getState().loadIntoEditor(fresh.story ? rebuildStory(fresh) : fresh);
+            }}
+          >
+            Aç
+          </Btn>
+          <Btn
+            small
+            variant="ghost"
+            onClick={async () => {
+              if (confirm(`"${t.name}" şablonu silinsin mi?`)) {
+                await deleteUserTemplate(t.id);
+                refresh();
+              }
+            }}
+          >
+            ✕
+          </Btn>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const TemplatesTab: React.FC = () => {
   const load = useStore((s) => s.loadIntoEditor);
   return (
@@ -350,6 +451,7 @@ const TemplatesTab: React.FC = () => {
           <div className="text-[11px] text-neutral-400">{t.desc}</div>
         </button>
       ))}
+      <UserTemplates />
     </div>
   );
 };
@@ -358,7 +460,7 @@ export const Library: React.FC = () => {
   const [tab, setTab] = useState<Tab>('templates');
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="grid grid-cols-5 border-b border-white/10">
+      <div className="grid grid-cols-6 border-b border-white/10">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -376,6 +478,7 @@ export const Library: React.FC = () => {
         {tab === 'bg' && <BgTab />}
         {tab === 'effects' && <EffectsTab />}
         {tab === 'templates' && <TemplatesTab />}
+        {tab === 'story' && <StoryTab />}
       </div>
     </div>
   );

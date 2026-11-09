@@ -1,6 +1,7 @@
-import type { Keyframe, Project } from '../types';
+import type { Keyframe, Layer, Project } from '../types';
 import { brandLayer } from './brand';
-import { cameraLayer } from './factory';
+import { cameraLayer, frameLayer } from './factory';
+import { defaultStory, defaultSubtitleStyle, rebuildStory } from './story';
 import {
   BG_PRESETS,
   PARTICLE_PRESETS,
@@ -497,7 +498,50 @@ export function bombParty2MusicTemplate(): Project {
   return p;
 }
 
+/** H. Büyük Kazanç Hikâyesi — oyun kaydı + seslendirme + altyazı için düzenlenebilir çerçeve */
+export function bigWinStoryTemplate(): Project {
+  const p = emptyProject('9:16', 'Büyük Kazanç Hikâyesi');
+  p.story = defaultStory();
+  const bg = backgroundLayer(p, bgPreset('Slotolog Parti'), 'Arka plan');
+  const sparkles = particlesLayer(p, { kind: 'sparkles', count: 30, speed: 0.8, size: 26, seed: 41 }, 'Parıltılar');
+  sparkles.particles!.seed = 41;
+  const fr = frameLayer(p);
+  const win = fr.frame!.window;
+  const chrome = (l: Layer) => ({ ...l, storyRole: 'chrome' as const });
+  const lg = chrome(brandLayer(p, 'logoBadge', 470, { name: 'Slotolog logo', y: 160 }));
+  lg.effects = [makeEffect('float', 30, { duration: s(600), speed: 0.5, intensity: 0.3 }), makeEffect('shine', 30, { duration: s(600), speed: 0.35, intensity: 0.6 })];
+  const camp = chrome(
+    textLayer(p, { text: '{bonusAmount} + {freeSpinCount} FS', fontSize: 80, style: 'gold', strokeColor: '#5A1500', strokeWidth: 9, extrude: true, italic: true }, {
+      name: 'Kampanya: bonus', y: 1592, width: 1040, height: 112, textTemplate: '{bonusAmount} + {freeSpinCount} FS',
+    }),
+  );
+  camp.effects = [makeEffect('pulse', 30, { duration: s(600), speed: 0.6, intensity: 0.15 })];
+  const desc = chrome(
+    textLayer(p, { text: '{campaignText}', fontSize: 44, style: 'white', strokeColor: '#7A1E00', strokeWidth: 7, extrude: false }, {
+      name: 'Kampanya: açıklama', y: 1668, width: 1040, height: 66, textTemplate: '{campaignText}',
+    }),
+  );
+  const btn = chrome(buttonLayer(p, 'BONUSU AL', { y: 1772, width: 600, height: 120 }));
+  btn.button = { ...btn.button!, fontSize: 62, colorTop: '#FFD45A', colorBottom: '#FF7A00' };
+  btn.effects = [makeEffect('pulse', 30, { duration: s(600), speed: 1.2, intensity: 0.5 }), makeEffect('glow', 30, { duration: s(600), color: '#FFE27A', speed: 1.2, intensity: 0.45 })];
+  const legal = chrome(
+    textLayer(p, { text: '18+ · Kampanya koşulları geçerlidir · Sorumlu oyna', fontSize: 28, style: 'solid', color: '#FFF4E0', strokeColor: '#5A1500', strokeWidth: 4, extrude: false }, {
+      name: 'Yasal not (18+ / sorumlu oyun)', y: 1878, width: 1040, height: 44,
+    }),
+  );
+  const subs = baseLayer(
+    { type: 'subtitles', name: 'Altyazılar', x: win.x, y: win.y + win.h / 2 - 150, width: 960, height: 240, storyRole: 'subtitles', subtitleStyle: defaultSubtitleStyle() },
+    p,
+  );
+  const label = textLayer(p, { text: 'CANLANDIRMADIR', fontSize: 30, style: 'solid', color: '#FFFFFF', strokeColor: '#000000', strokeWidth: 5, extrude: false }, {
+    name: 'Canlandırma etiketi', x: win.x + win.w / 2 - 170, y: win.y - win.h / 2 + 46, width: 300, height: 48, storyRole: 'label', visible: true,
+  });
+  p.layers = [bg, sparkles, fr, lg, camp, desc, btn, legal, subs, label];
+  return rebuildStory(p);
+}
+
 export const TEMPLATES = [
+  { id: 'bigwinstory', name: '🎬 Büyük Kazanç Hikâyesi', desc: 'Oyun kaydı + seslendirme + altyazı, 6 sahne, çerçeve', make: bigWinStoryTemplate },
   { id: 'bombparty2music', name: '★ Bomb Party 2.0 — Music Edition', desc: 'Müzik ekle: bombalar vuruşlara göre dans eder · 18 sn', make: bombParty2MusicTemplate },
   { id: 'bombparty2', name: '★ Slotolog 1000X Bomb Party 2.0', desc: 'Kamera, Dance Pro, özgün sesler, müziğe hazır · 18 sn', make: bombParty2Template },
   { id: 'bombparty', name: '★ Slotolog 1000X Bomb Party', desc: '5 adet 1000X bomba, parti arka planı, meyveler, 18 sn', make: bombPartyTemplate },

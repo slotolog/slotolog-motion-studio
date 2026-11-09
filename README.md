@@ -136,6 +136,7 @@ Remotion; bireyler ve **en fazla 3 çalışanlı** şirketler için ücretsizdir
 
 ## 5. Şablonlar
 
+- **🎬 Büyük Kazanç Hikâyesi:** oyun kaydı + seslendirme + altyazı için 6 bölümlü, düzenlenebilir reklam çerçevesi (ayrıntılar aşağıda, bölüm 9).
 - **★ Bomb Party 2.0 — Music Edition (18 sn):** Bomb Party 2.0 ile aynı tasarım; müzik eklenince bombalar bas vuruşlarında büyür, güçlü vuruşlarda birlikte zıplar (Beat Jump), vuruşlarda sırayla sağa-sola döner (Beat Turn), altın patlamaları güçlü vuruşlarda bombalar arasında dolaşır, kamera vuruşla nabız atar. Müziksiz de çalışır.
 - **★ Slotolog 1000X Bomb Party 2.0 (18 sn):** kamera yakınlaşma/sarsıntı, 5 bağımsız bomba (Dance Pro, Group Dance, Smooth Rotation, Floating, Light Sweep, gölge, hareket bulanıklığı), Golden Explosion’lar, güçlü yazı girişleri, final bölümünde parlayan buton, özgün ses efektleri. Müzik eklenirse bombalar vuruşlara göre dans eder ve büyür.
 - **★ Slotolog 1000X Bomb Party (18 sn):** parti arka planı (turuncu-altın-pembe, dönen ışıklar, parlamalar), üst/alt meyve çerçevesi, uçuşan meyveler ve altınlar, logo rozeti, üstte 2 + altta 3 adet 1000X bomba (her biri ayrı katman: sallanma, süzülme, büyüme-küçülme, ışık yansıması — farklı fazlarla), 100.000TL + 450FS, TÜM YENİ OYUNCULARA, BONUSU AL.
@@ -185,3 +186,27 @@ Komutlar: `npm run dev` (geliştirme) · `npm run build` (üretim, `dist/`) · `
 Kendi seçtiğin şarkılar yalnızca senin tarayıcında / proje dosyanda tutulur; bu depoya ve canlı uygulamaya **yüklenmez**. Reklamda ticari bir şarkı kullanmak için hak sahiplerinden (yapımcı/yayıncı) senkronizasyon lisansı gerekir.
 
 `tools/build_music_project.py`, bir şablonu yerel bir müzik dosyasıyla birleştirip düzenlenebilir proje (.slotolog.json) ve MP4 üretir; şarkıya özel ayar dosyası da yerel kalır.
+
+## 9. Büyük Kazanç Hikâyesi modülü
+
+Farklı oyun kayıtlarıyla “büyük kazanç” videoları üretmek için tekrar kullanılabilir altyapı.
+Sol panel **🎬 Hikâye** sekmesi → **Hikâye Stüdyosu**.
+
+**Akış:** şablonu seç → oyun kaydını yükle → önemli anları işaretle → tutarları gir → senaryoyu yaz → ses kaydını yükle → önizle → MP4.
+
+| Bölüm | Ne yapar |
+|---|---|
+| **Oyun kayıtları** (sol sütun) | MP4/MOV yükle, oynatıcıda “◆ Önemli an” / “★ Büyük kazanç” işaretle, işaretlere ad ver. |
+| **Veriler** | Oyun adı, başlangıç bahsi, Free Spin değeri, toplam kazanç, bonus, Free Spin adedi, kampanya açıklaması, video süresi. Yazı katmanlarındaki `{totalWin}` gibi yerler otomatik dolar. **Tutarları sen girersin; sistem rakam üretmez** — boş alan videoda `[Toplam kazanç]` olarak görünür ve uyarı verir. Video süresi değişince sahneler orantılı ölçeklenir. |
+| **Sahneler** | 6 bölüm: açılış (büyük kazanç anı), “Peki nasıl başladı?”, başlangıç/bonus, yükselen anlar, büyük kazanç, kampanya/kapanış. Her sahne: süre, sıra (↑↓), kopyala/sil, geçiş (kesme, yumuşak, yakınlaşma, kayma, ışık patlaması, geri sarma), ekran yazısı, kayıt, kayıttaki başlangıç/bitiş, **bağlı işaret** (işaretli an sahnenin istenen saniyesinde görünür), hız (yavaşlat/hızlandır), görüntü içi yakınlaştırma (odak noktası, istenirse sahne boyunca), renk (geçmiş/sepya, s-b, sıcak), oyun sesi aç/kapa/seviye. Aynı kayıttan farklı bölümler farklı sahnelerde kullanılabilir. |
+| **Senaryo ve Seslendirme** | Metni yaz; boş satırla ayrılan paragraflar “Sahnelere böl” ile sırayla sahnelere gider. Her sahnede kelime sayısı ve **tahmini konuşma süresi** (konuşma hızı ayarlanabilir). “Süreleri metne/sese uydur”. Kendi ses kaydını yükle, her sahneye kayıttaki bölümünü (başlangıç–bitiş, gecikme) ata. Seslendirme zaman çizelgesinde sürüklenip kırpılabilir (sahneye geri yazılır). Seslendirme konuşurken müzik otomatik kısılır (proje ayarları). |
+| **Altyazı** | Senaryodan cümle veya 2–3 kelimelik gruplar halinde altyazı üret; her satırın metni/başlangıç/bitişi elle düzenlenir. Yazı boyutu, renk, kontur, vurgu, kutu; Slotolog turuncu-beyaz stili; aç/kapa. Zamanlama hesaplanır/elle ayarlanır — **otomatik konuşma tanıma yoktur**. |
+| **Çerçeve** | Turuncu-altın animasyonlu çerçeve, ışıklar, meyveler, 777; video penceresinin konumu/boyutu; çerçeveyi aç/kapat (kapalıyken kayıt tam ekran). Logo, kampanya yazıları, BONUSU AL, 18+ / sorumlu oyun notu ayrı katmanlardır. |
+
+**Canlandırma etiketi:** varsayılan **açık** (“CANLANDIRMADIR”). Metin gerçek bir oyuncunun sözü değilse kapatma; birinci ağızdan yazılmış metinde etiket kapalıysa uyarı verilir.
+
+**Uyarılar:** kayıt sahneden kısa, işaret silinmiş, seslendirme sahneden uzun / videodan sonra bitiyor, metnin okunma süresi sahneden uzun, boş veri alanı, altyazı video sonunu aşıyor.
+
+**Ana şablon:** Şablonlar → “Kendi şablonlarım” → Kaydet. Düzen, sahne süreleri, yazılar, stil saklanır; oyun kayıtları, işaretler, seslendirme ve **kazanç tutarları** saklanmaz (her video kendi verisini girer).
+
+**Henüz olmayanlar:** otomatik önemli an algılama, otomatik konuşma tanıma (altyazı zamanlaması), yapay zekâ seslendirme (altyapı hazır, ücretli servis onay olmadan bağlanmaz).

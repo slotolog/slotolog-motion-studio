@@ -167,3 +167,28 @@ export function cameraLayer(project: Project, partial: Partial<Layer> = {}): Lay
   const { width, height } = ASPECT_SIZES[project.aspect];
   return baseLayer({ type: 'camera', name: 'Kamera', width, height, ...partial }, project);
 }
+
+export function frameLayer(project: Project, partial: Partial<Layer> = {}): Layer {
+  const { width, height } = ASPECT_SIZES[project.aspect];
+  return baseLayer(
+    {
+      type: 'frame',
+      name: 'Slotolog çerçevesi',
+      width,
+      height,
+      storyRole: 'frame',
+      frame: {
+        window: { x: width / 2, y: 905, w: 1000, h: 1190 },
+        radius: 34,
+        thickness: 26,
+        colorA: '#FFB300',
+        colorB: '#FF8E16',
+        lights: true,
+        fruits: true,
+        sevens: true,
+      },
+      ...partial,
+    },
+    project,
+  );
+}

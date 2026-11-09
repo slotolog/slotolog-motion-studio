@@ -4,7 +4,8 @@ import { propAt } from './lib/anim';
 import { getAssetBlob, saveAssetBlob, saveProject } from './lib/storage';
 import { multiplierTemplate } from './lib/templates';
 import { BRAND_ASSETS, brandUrl, type BrandKey } from './lib/brand';
-import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project, ProjectAudio, SfxKey } from './types';
+import type { AnimProp, Asset, AssetKind, Aspect, Effect, EffectType, Layer, Project, ProjectAudio, SfxKey, StoryData } from './types';
+import { rebuildStory, sceneStarts } from './lib/story';
 import { analyzeAudio, measurePeak, normalizeGain } from './lib/beats';
 import { projectAudio } from './lib/music';
 import { SFX } from './lib/sfx';
@@ -58,6 +59,9 @@ interface State {
   analyzing: string[];
   analyzeAsset: (assetId: string) => Promise<void>;
   setAudio: (patch: Partial<ProjectAudio>) => void;
+  /** change the story data and regenerate the scene layers */
+  updateStory: (fn: (s: StoryData) => StoryData, record?: boolean) => void;
+  addVoiceFile: (file: File) => Promise<Asset>;
   normalizeLayer: (layerId: string, targetDb?: number) => Promise<number | null>;
   setBeatGrid: (assetId: string, grid: { bpm: number; firstBeat: number; beatsPerBar?: number }) => void;
   arrangeLayout: (layerId: string, layout: LayoutKind) => void;
@@ -183,7 +187,24 @@ export const useStore = create<State>((set, get) => {
       commit((p) => ({ ...p, layers: [...p.layers, l] }));
       set({ selectedId: l.id });
     },
-    updateLayer: (id, patch, record = true) => commit((p) => mapLayer(p, id, (l) => ({ ...l, ...patch })), record),
+    updateLayer: (id, patch, record = true) =>
+      commit((p) => {
+        const l = p.layers.find((x) => x.id === id);
+        // story voice-over: moving / trimming it on the timeline updates the scene, then layers are rebuilt
+        if (l && p.story && l.storyRole === 'scene' && l.type === 'audio' && l.storySceneId && ('start' in patch || 'duration' in patch || 'trimStart' in patch)) {
+          const scenes = p.story.scenes;
+          const idx = scenes.findIndex((s) => s.id === l.storySceneId);
+          const sc = scenes[idx];
+          if (sc?.voice) {
+            const starts = sceneStarts(p.story);
+            const nl = { ...l, ...patch };
+            const from = nl.trimStart ?? sc.voice.from;
+            const voice = { ...sc.voice, from, to: from + nl.duration / p.fps, delay: Math.max(0, nl.start / p.fps - starts[idx]) };
+            return rebuildStory({ ...p, story: { ...p.story, scenes: scenes.map((s) => (s.id === sc.id ? { ...s, voice } : s)) } });
+          }
+        }
+        return mapLayer(p, id, (x) => ({ ...x, ...patch }));
+      }, record),
     setLayerProp: (id, prop, value, record = true) =>
       commit(
         (p) =>
@@ -330,6 +351,12 @@ export const useStore = create<State>((set, get) => {
       const gain = Math.round(normalizeGain(peak, targetDb) * 100) / 100;
       get().updateLayer(layerId, { volume: gain });
       return gain;
+    },
+    updateStory: (fn, record = true) =>
+      commit((p) => (p.story ? rebuildStory({ ...p, story: fn(p.story) }) : p), record),
+    addVoiceFile: async (file) => {
+      const a = await get().addAssetFromFile(file);
+      return a;
     },
     setAudio: (patch) => commit((p) => ({ ...p, audio: { ...projectAudio(p), ...patch } })),
     addSfxLayer: (key) => {

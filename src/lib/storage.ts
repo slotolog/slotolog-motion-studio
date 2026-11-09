@@ -4,6 +4,7 @@ import { uid } from './factory';
 
 const projectStore = createStore('slotolog-projects', 'projects');
 const assetStore = createStore('slotolog-assets', 'assets');
+const templateStore = createStore('slotolog-templates', 'templates');
 
 export interface ProjectSummary {
   id: string;
@@ -96,3 +97,44 @@ export function downloadBlob(blob: Blob, filename: string) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
+
+export interface UserTemplate {
+  id: string;
+  name: string;
+  createdAt: number;
+  project: Project;
+}
+
+/**
+ * Saves the project as a reusable template. Uploaded media (game recordings, voice files)
+ * is NOT kept — each new video brings its own; built-in brand assets stay.
+ */
+export async function saveUserTemplate(p: Project, name: string): Promise<UserTemplate> {
+  const keepAssets = p.assets.filter((a) => !!a.src);
+  const keepIds = new Set(keepAssets.map((a) => a.id));
+  const project: Project = {
+    ...structuredClone(p),
+    assets: keepAssets,
+    layers: p.layers.filter((l) => !l.assetId || keepIds.has(l.assetId)).map((l) => structuredClone(l)),
+  };
+  if (project.story) {
+    project.story = {
+      ...project.story,
+      // amounts belong to one specific game session: the next video must enter its own
+      fields: { ...project.story.fields, gameName: '', betAmount: '', freeSpinValue: '', totalWin: '' },
+      markers: [],
+      scenes: project.story.scenes.map((s) => ({ ...s, markerId: undefined, clip: { ...s.clip, assetId: undefined, in: 0, out: 0 }, voice: undefined })),
+    };
+  }
+  const t: UserTemplate = { id: uid(), name, createdAt: Date.now(), project };
+  await set(t.id, t, templateStore);
+  return t;
+}
+
+export async function listUserTemplates(): Promise<UserTemplate[]> {
+  const ids = (await keys(templateStore)) as string[];
+  const all = await Promise.all(ids.map((id) => get<UserTemplate>(id, templateStore)));
+  return all.filter((x): x is UserTemplate => !!x).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export const deleteUserTemplate = (id: string) => del(id, templateStore);

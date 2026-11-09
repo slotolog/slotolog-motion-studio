@@ -6,10 +6,21 @@ import { buildMusicSync, projectAudio, type MusicSync } from '../lib/music';
 import { SFX, sfxUrl } from '../lib/sfx';
 import { rand } from '../lib/anim';
 import type { CompositionProps, Layer, ProjectAudio, SfxKey } from '../types';
-import { BackgroundCanvas, ButtonView, MultiplierSvg, ParticlesCanvas, Placeholder, ShineImage, SvgText } from './Elements';
+import { BackgroundCanvas, ButtonView, FrameCanvas, MultiplierSvg, ParticlesCanvas, Placeholder, ShineImage, SubtitleView, SvgText } from './Elements';
+import { fillTemplate, defaultSubtitleStyle } from '../lib/story';
+import type { StoryData } from '../types';
+
+const StoryContext = React.createContext<StoryData | undefined>(undefined);
+
+const COLOR_FILTERS: Record<string, string | undefined> = {
+  none: undefined,
+  sepia: 'sepia(0.85) contrast(1.05)',
+  bw: 'grayscale(1) contrast(1.1)',
+  warm: 'sepia(0.3) saturate(1.35)',
+};
 import { drawCoin } from './draw';
 
-type Mix = Pick<ProjectAudio, 'musicVolume' | 'sfxVolume' | 'musicMuted' | 'sfxMuted'>;
+type Mix = Pick<ProjectAudio, 'musicVolume' | 'sfxVolume' | 'musicMuted' | 'sfxMuted' | 'voiceVolume' | 'voiceMuted' | 'duckMusic'>;
 
 const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput['shine']; fps: number }> = ({ layer, url, shine, fps }) => {
   switch (layer.type) {
@@ -31,13 +42,16 @@ const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput[
           loop={!!layer.loop}
           volume={layer.volume ?? 1}
           trimBefore={layer.trimStart ? Math.round(layer.trimStart * fps) : undefined}
+          playbackRate={layer.playbackRate ?? 1}
           style={{ width: '100%', height: '100%' }}
         />
       ) : (
         <Placeholder label="Video bulunamadı" />
       );
     case 'text':
-      return layer.text ? <SvgText id={layer.id} s={layer.text} width={layer.width} height={layer.height} /> : null;
+      return layer.text ? (
+        <StoryText layer={layer} />
+      ) : null;
     case 'multiplier':
       return <MultiplierSvg id={layer.id} value={layer.text?.text ?? '100X'} style={layer.text?.style} color={layer.text?.color} />;
     case 'button':
@@ -47,6 +61,26 @@ const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput[
     default:
       return null;
   }
+};
+
+const StoryText: React.FC<{ layer: Layer }> = ({ layer }) => {
+  const story = React.useContext(StoryContext);
+  const text = layer.textTemplate ? fillTemplate(layer.textTemplate, story?.fields) : layer.text!.text;
+  return <SvgText id={layer.id} s={{ ...layer.text!, text }} width={layer.width} height={layer.height} />;
+};
+
+/** Zoom inside the layer box (cropped), optionally growing over the layer's life. */
+const MediaZoom: React.FC<{ layer: Layer; children: React.ReactNode }> = ({ layer, children }) => {
+  const frame = useCurrentFrame();
+  const z = layer.mediaZoom;
+  if (!z || (z.scale === 1 && !z.animate)) return <>{children}</>;
+  const p = z.animate ? Math.min(1, frame / Math.max(1, layer.duration)) : 1;
+  const s = 1 + (z.scale - 1) * p;
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, transform: `scale(${s})`, transformOrigin: `${z.x * 100}% ${z.y * 100}%` }}>{children}</div>
+    </div>
+  );
 };
 
 /** Coins bursting out of a point, drawn in composition space. */
@@ -108,7 +142,37 @@ function transformOf(layer: Layer, frame: number, fps: number, comp: { width: nu
   };
 }
 
-const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; music: MusicSync | null; mix: Mix }> = ({ layer, assetUrls, music, mix }) => {
+const SubtitleLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
+  const story = React.useContext(StoryContext);
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  if (!story?.subtitles.enabled) return null;
+  return (
+    <div style={{ position: 'absolute', left: layer.x - layer.width / 2, top: layer.y - layer.height / 2, width: layer.width, height: layer.height }}>
+      <SubtitleView cues={story.subtitles.cues} style={layer.subtitleStyle ?? defaultSubtitleStyle()} t={(layer.start + frame) / fps} width={layer.width} height={layer.height} />
+    </div>
+  );
+};
+
+/** music volume factor while a voice-over is speaking (0.25 s ramps) */
+function duckAt(ranges: [number, number][], f: number, fps: number) {
+  const ramp = 0.25 * fps;
+  let k = 1;
+  for (const [a, b] of ranges) {
+    if (f < a - ramp || f > b + ramp) continue;
+    const inside = f < a ? (f - (a - ramp)) / ramp : f > b ? 1 - (f - b) / ramp : 1;
+    k = Math.min(k, 1 - 0.65 * Math.max(0, Math.min(1, inside)));
+  }
+  return k;
+}
+
+const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; music: MusicSync | null; mix: Mix; voiceRanges?: [number, number][] }> = ({
+  layer,
+  assetUrls,
+  music,
+  mix,
+  voiceRanges = [],
+}) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const url = layer.assetId ? assetUrls[layer.assetId] : undefined;
@@ -127,8 +191,9 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
   if (layer.type === 'camera') return null;
   if (layer.type === 'audio') {
     if (!url) return null;
-    const isMusic = (layer.channel ?? 'music') === 'music';
-    const ch = isMusic ? (mix.musicMuted ? 0 : mix.musicVolume) : sfxVol;
+    const channel = layer.channel ?? 'music';
+    const ch =
+      channel === 'music' ? (mix.musicMuted ? 0 : mix.musicVolume) : channel === 'voice' ? (mix.voiceMuted ? 0 : (mix.voiceVolume ?? 1)) : sfxVol;
     const fi = (layer.fadeIn ?? 0) * fps;
     const fo = (layer.fadeOut ?? 0) * fps;
     const base = (layer.volume ?? 1) * ch;
@@ -141,6 +206,7 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
           let v = base;
           if (fi > 0 && f < fi) v *= f / fi;
           if (fo > 0 && f > layer.duration - fo) v *= Math.max(0, (layer.duration - f) / fo);
+          if (channel === 'music' && voiceRanges.length) v *= duckAt(voiceRanges, layer.start + f, fps);
           return v;
         }}
       />
@@ -153,6 +219,17 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
         {sounds}
       </AbsoluteFill>
     );
+  }
+  if (layer.type === 'frame' && layer.frame) {
+    return (
+      <AbsoluteFill style={{ opacity }}>
+        <FrameCanvas settings={layer.frame} />
+        {sounds}
+      </AbsoluteFill>
+    );
+  }
+  if (layer.type === 'subtitles') {
+    return <SubtitleLayer layer={layer} />;
   }
   if (layer.type === 'particles' && layer.particles) {
     return (
@@ -176,6 +253,8 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
     filters.push(`drop-shadow(0px 0px ${(fx.glow.radius / 2).toFixed(1)}px ${fx.glow.color})`);
   }
   if (fx.brightness !== 1) filters.push(`brightness(${fx.brightness.toFixed(3)})`);
+  const cf = layer.colorFilter ? COLOR_FILTERS[layer.colorFilter] : undefined;
+  if (cf) filters.push(cf);
   if (layer.motionBlur && frame > 0) {
     const prev = transformOf(layer, frame - 1, fps, comp, music);
     const speed = Math.hypot(x - prev.x, y - prev.y) + Math.abs(sc - prev.sc) * Math.max(layer.width, layer.height) * 0.5;
@@ -219,7 +298,9 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
           />
         )}
         <div style={{ position: 'absolute', inset: 0, filter: filters.length ? filters.join(' ') : undefined }}>
-          <LayerContent layer={layer} url={url} shine={fx.shine} fps={fps} />
+          <MediaZoom layer={layer}>
+            <LayerContent layer={layer} url={url} shine={fx.shine} fps={fps} />
+          </MediaZoom>
         </div>
       </div>
       {sounds}
@@ -254,15 +335,24 @@ export const MainComposition: React.FC<CompositionProps> = ({ project, assetUrls
   const { fps, width, height } = useVideoConfig();
   const music = useMemo(() => buildMusicSync(project), [project]);
   const mix = projectAudio(project);
+  // where the voice-over speaks (global frames), used to lower the music
+  const voiceRanges = useMemo<[number, number][]>(
+    () =>
+      mix.duckMusic === false || mix.voiceMuted
+        ? []
+        : project.layers.filter((l) => l.visible && l.type === 'audio' && l.channel === 'voice').map((l) => [l.start, l.start + l.duration]),
+    [project.layers, mix.duckMusic, mix.voiceMuted],
+  );
   const cam = cameraAt(project.layers, frame, fps, { width, height }, music);
 
   return (
+    <StoryContext.Provider value={project.story}>
     <AbsoluteFill style={{ backgroundColor: '#000', overflow: 'hidden' }}>
       {project.layers.map((layer) => {
         if (!layer.visible || layer.type === 'camera') return null;
         const seq = (
           <Sequence from={layer.start} durationInFrames={Math.max(1, layer.duration)} name={layer.name}>
-            <LayerView layer={layer} assetUrls={assetUrls} music={music} mix={mix} />
+            <LayerView layer={layer} assetUrls={assetUrls} music={music} mix={mix} voiceRanges={voiceRanges} />
           </Sequence>
         );
         if (!cam) {
@@ -287,5 +377,6 @@ export const MainComposition: React.FC<CompositionProps> = ({ project, assetUrls
         );
       })}
     </AbsoluteFill>
+    </StoryContext.Provider>
   );
 };

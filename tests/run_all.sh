@@ -17,6 +17,7 @@ python3 tests/e2e/bombparty.py $OUT
 python3 tests/e2e/bombparty2.py $OUT
 python3 tests/e2e/music.py $OUT
 python3 tests/e2e/music_edition.py $OUT
+python3 tests/e2e/story.py $OUT
 python3 tests/e2e/flow.py $OUT
 ffprobe -v error -show_entries stream=codec_type,codec_name,width,height:format=duration -of compact $OUT/flow.mp4
 echo "TÜM TESTLER TAMAM"

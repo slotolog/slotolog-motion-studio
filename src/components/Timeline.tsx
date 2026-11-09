@@ -17,6 +17,8 @@ export const TYPE_META: Record<LayerType, { icon: string; color: string; label: 
   button: { icon: '▭', color: '#0891b2', label: 'Buton' },
   placeholder: { icon: '▢', color: '#525252', label: 'Yer tutucu' },
   camera: { icon: '🎥', color: '#0f766e', label: 'Kamera' },
+  frame: { icon: '▣', color: '#c2410c', label: 'Çerçeve' },
+  subtitles: { icon: '💬', color: '#4f46e5', label: 'Altyazı' },
 };
 
 const LABEL_W = 210;

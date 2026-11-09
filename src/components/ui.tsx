@@ -150,10 +150,10 @@ export const Toggle: React.FC<{ value: boolean; onChange: (v: boolean) => void; 
   </button>
 );
 
-export const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }> = ({ title, onClose, children, wide }) => (
+export const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; wide?: boolean | 'xl' }> = ({ title, onClose, children, wide }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onPointerDown={onClose}>
     <div
-      className={`max-h-[90vh] w-full ${wide ? 'max-w-2xl' : 'max-w-md'} overflow-auto rounded-xl border border-white/10 bg-[#1E1E1E] shadow-2xl`}
+      className={`max-h-[90vh] w-full ${wide === 'xl' ? 'max-w-6xl' : wide ? 'max-w-2xl' : 'max-w-md'} overflow-auto rounded-xl border border-white/10 bg-[#1E1E1E] shadow-2xl`}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">

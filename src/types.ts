@@ -16,7 +16,9 @@ export type LayerType =
   | 'background'
   | 'particles'
   | 'placeholder'
-  | 'camera';
+  | 'camera'
+  | 'frame'
+  | 'subtitles';
 
 export type AnimProp = 'x' | 'y' | 'scale' | 'rotation' | 'opacity';
 export const ANIM_PROPS: AnimProp[] = ['x', 'y', 'scale', 'rotation', 'opacity'];
@@ -162,7 +164,7 @@ export interface Layer {
   trimStart?: number;
   fadeIn?: number;
   fadeOut?: number;
-  channel?: 'music' | 'sfx';
+  channel?: 'music' | 'sfx' | 'voice';
   /** sound played when the layer appears */
   startSound?: SfxKey;
   startSoundVolume?: number;
@@ -172,6 +174,18 @@ export interface Layer {
   motionBlur?: boolean;
   /** how strongly the camera moves this layer (0 = fixed, 1 = full) */
   depth?: number;
+  /** video speed (0.25 – 4) */
+  playbackRate?: number;
+  /** zoom inside the layer box (cropped): scale and focus point 0..1 */
+  mediaZoom?: { scale: number; x: number; y: number; animate?: boolean };
+  colorFilter?: 'none' | 'sepia' | 'bw' | 'warm';
+  /** text with {field} placeholders, filled from the story data fields */
+  textTemplate?: string;
+  /** layers created / owned by the story module */
+  storyRole?: StoryRole;
+  storySceneId?: string;
+  frame?: FrameSettings;
+  subtitleStyle?: SubtitleStyle;
   text?: TextSettings;
   button?: ButtonSettings;
   background?: BackgroundSettings;
@@ -224,6 +238,10 @@ export interface ProjectAudio {
   sfxVolume: number;
   musicMuted: boolean;
   sfxMuted: boolean;
+  voiceVolume?: number;
+  voiceMuted?: boolean;
+  /** lower the music while the voice-over speaks (default on) */
+  duckMusic?: boolean;
   /** music-synced animations on/off */
   syncEnabled: boolean;
   sections: MusicSection[];
@@ -240,9 +258,116 @@ export interface Project {
   assets: Asset[];
   updatedAt: number;
   audio?: ProjectAudio;
+  story?: StoryData;
 }
 
 export interface CompositionProps extends Record<string, unknown> {
   project: Project;
   assetUrls: Record<string, string>;
+}
+
+/* ---------------- Büyük Kazanç Hikâyesi ---------------- */
+
+export type StoryRole = 'frame' | 'chrome' | 'scene' | 'subtitles' | 'label' | 'voice';
+
+export interface FrameSettings {
+  /** the video window inside the frame (composition px, centre + size) */
+  window: { x: number; y: number; w: number; h: number };
+  radius: number;
+  thickness: number;
+  colorA: string;
+  colorB: string;
+  lights: boolean;
+  fruits: boolean;
+  sevens: boolean;
+}
+
+export interface SubtitleStyle {
+  fontSize: number;
+  color: string;
+  strokeColor: string;
+  strokeWidth: number;
+  highlight: string;
+  box: boolean;
+}
+
+export type StoryFieldKey =
+  | 'gameName'
+  | 'betAmount'
+  | 'freeSpinValue'
+  | 'totalWin'
+  | 'bonusAmount'
+  | 'freeSpinCount'
+  | 'campaignText';
+
+export type SceneKind = 'hook' | 'flashback' | 'start' | 'rising' | 'bigwin' | 'outro' | 'custom';
+export type SceneTransition = 'cut' | 'fade' | 'zoom' | 'slide' | 'flash' | 'rewind';
+
+export interface StoryClip {
+  assetId?: string;
+  /** seconds in the source recording */
+  in: number;
+  out: number;
+  speed: number;
+  zoom: number;
+  zoomX: number;
+  zoomY: number;
+  zoomAnimate: boolean;
+  muted: boolean;
+  volume: number;
+}
+
+export interface StoryVoicePart {
+  assetId?: string;
+  /** seconds in the voice file */
+  from: number;
+  to: number;
+  /** delay after the scene start */
+  delay: number;
+}
+
+export interface StoryScene {
+  id: string;
+  kind: SceneKind;
+  title: string;
+  /** seconds */
+  duration: number;
+  clip: StoryClip;
+  /** important moment this scene shows (marker on a recording) */
+  markerId?: string;
+  /** where inside the scene the marked moment should appear (seconds) */
+  hitAt?: number;
+  transition: SceneTransition;
+  caption: string;
+  voText: string;
+  voice?: StoryVoicePart;
+  colorFilter?: Layer['colorFilter'];
+}
+
+export interface StoryMarker {
+  id: string;
+  assetId: string;
+  /** seconds in the recording */
+  time: number;
+  label: string;
+  bigWin: boolean;
+}
+
+export interface SubtitleCue {
+  id: string;
+  text: string;
+  start: number;
+  end: number;
+}
+
+export interface StoryData {
+  fields: Record<StoryFieldKey, string>;
+  scenes: StoryScene[];
+  markers: StoryMarker[];
+  script: string;
+  /** speaking rate used for duration estimates (words per second) */
+  wordsPerSecond: number;
+  subtitles: { enabled: boolean; mode: 'sentence' | 'word'; cues: SubtitleCue[] };
+  frameEnabled: boolean;
+  dramatization: { enabled: boolean; text: string };
 }

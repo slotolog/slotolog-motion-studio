@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { continueRender, delayRender, useCurrentFrame, useVideoConfig } from 'remotion';
 import { FONT_FAMILY } from '../lib/fonts';
-import type { BackgroundSettings, ButtonSettings, ParticleSettings, TextSettings } from '../types';
-import { drawBackground, drawParticles } from './draw';
+import type { BackgroundSettings, ButtonSettings, FrameSettings, ParticleSettings, SubtitleCue, SubtitleStyle, TextSettings } from '../types';
+import { drawBackground, drawParticles, drawStoryFrame } from './draw';
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_-]/g, '');
 
@@ -287,5 +287,73 @@ export const ShineImage: React.FC<{
       height={Math.max(1, Math.round(height))}
       style={{ width: '100%', height: '100%', display: 'block' }}
     />
+  );
+};
+
+export const FrameCanvas: React.FC<{ settings: FrameSettings }> = ({ settings }) => {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const frame = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
+  useLayoutEffect(() => {
+    const ctx = ref.current?.getContext('2d');
+    if (ctx) drawStoryFrame(ctx, settings, frame / fps, width, height);
+  }, [frame, fps, width, height, settings]);
+  return <canvas ref={ref} width={width} height={height} style={{ width: '100%', height: '100%', display: 'block' }} />;
+};
+
+function wrap(text: string, maxChars: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > maxChars && cur) {
+      lines.push(cur);
+      cur = w;
+    } else cur = (cur + ' ' + w).trim();
+  }
+  if (cur) lines.push(cur);
+  return lines.slice(0, 3);
+}
+
+/** Subtitle of the current moment (cues are in composition seconds). */
+export const SubtitleView: React.FC<{ cues: SubtitleCue[]; style: SubtitleStyle; t: number; width: number; height: number }> = ({ cues, style, t, width, height }) => {
+  const cue = cues.find((c) => t >= c.start && t < c.end);
+  if (!cue) return null;
+  const age = t - cue.start;
+  const pop = 1 + Math.max(0, 0.12 - age) * 1.2;
+  const opacity = Math.min(1, age / 0.08);
+  const lines = wrap(cue.text, Math.max(8, Math.floor(width / (style.fontSize * 0.6))));
+  const lh = style.fontSize * 1.15;
+  const top = height / 2 - ((lines.length - 1) * lh) / 2;
+  const common = {
+    fontFamily: FONT_FAMILY,
+    fontWeight: 900,
+    fontSize: style.fontSize,
+    textAnchor: 'middle' as const,
+    dominantBaseline: 'central' as const,
+  };
+  const longest = Math.max(...lines.map((l) => l.length));
+  const boxW = Math.min(width, longest * style.fontSize * 0.62 + 60);
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ overflow: 'visible', display: 'block', opacity, transform: `scale(${pop})`, transformOrigin: 'center' }}
+      data-testid="subtitle"
+    >
+      {style.box && <rect x={(width - boxW) / 2} y={top - lh * 0.7} width={boxW} height={lines.length * lh + lh * 0.4} rx={24} fill="rgba(20,10,0,0.55)" />}
+      {style.strokeWidth > 0 &&
+        lines.map((l, i) => (
+          <text key={'s' + i} x={width / 2} y={top + i * lh} {...common} fill={style.strokeColor} stroke={style.strokeColor} strokeWidth={style.strokeWidth * 2} strokeLinejoin="round">
+            {l}
+          </text>
+        ))}
+      {lines.map((l, i) => (
+        <text key={'f' + i} x={width / 2} y={top + i * lh} {...common} fill={style.color}>
+          {l}
+        </text>
+      ))}
+    </svg>
   );
 };

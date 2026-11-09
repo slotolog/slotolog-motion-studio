@@ -238,6 +238,13 @@ const AudioSettings: React.FC = () => {
       <Row label="Efekt kanalı">
         <Slider value={a.sfxVolume} min={0} max={1} onChange={(v) => st.setAudio({ sfxVolume: v })} />
       </Row>
+      <Row label="Seslendirme kanalı">
+        <Slider value={a.voiceVolume ?? 1} min={0} max={2} onChange={(v) => st.setAudio({ voiceVolume: v })} />
+      </Row>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <Toggle value={a.duckMusic !== false} onChange={(v) => st.setAudio({ duckMusic: v })} label="Seslendirmede müziği kıs" />
+        <Toggle value={!!a.voiceMuted} onChange={(v) => st.setAudio({ voiceMuted: v })} label="Seslendirmeyi kapat" />
+      </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         <Toggle value={a.musicMuted} onChange={(v) => st.setAudio({ musicMuted: v })} label="Müziği kapat" />
         <Toggle value={a.sfxMuted} onChange={(v) => st.setAudio({ sfxMuted: v })} label="Efektleri kapat" />
@@ -394,12 +401,13 @@ const MusicLayerSettings: React.FC<{ layer: Layer }> = ({ layer }) => {
   return (
     <Section title="Müzik düzenleme">
       <Row label="Kanal">
-        <Select<'music' | 'sfx'>
+        <Select<'music' | 'sfx' | 'voice'>
           value={layer.channel ?? 'music'}
           onChange={(v) => up({ channel: v })}
           options={[
             { value: 'music', label: 'Müzik' },
             { value: 'sfx', label: 'Ses efekti' },
+            { value: 'voice', label: 'Seslendirme' },
           ]}
         />
       </Row>
@@ -450,7 +458,7 @@ export const Inspector: React.FC = () => {
   if (!layer) return <ProjectSettings />;
   const st = useStore.getState();
   const up = (patch: Partial<Layer>) => st.updateLayer(layer.id, patch);
-  const positional = !['background', 'particles', 'audio', 'camera'].includes(layer.type);
+  const positional = !['background', 'particles', 'audio', 'camera', 'frame'].includes(layer.type);
   const visualAssets = assets.filter((a) => a.kind !== 'audio');
 
   return (
@@ -477,6 +485,9 @@ export const Inspector: React.FC = () => {
         <Row label="Ad">
           <TextInput value={layer.name} onChange={(v) => up({ name: v })} />
         </Row>
+        {layer.storyRole === 'scene' && (
+          <p className="rounded bg-[#FF8E16]/10 p-1.5 text-[10px] text-[#FFB866]">Bu katman Hikâye Stüdyosu’ndaki sahneden üretilir; kalıcı değişiklikleri orada yap (burada yapılanlar sahne değişince yenilenir).</p>
+        )}
         <div className="flex gap-4">
           <Toggle value={layer.visible} onChange={(v) => up({ visible: v })} label="Görünür" />
           <Toggle value={layer.locked} onChange={(v) => up({ locked: v })} label="Kilitli" />
@@ -563,7 +574,12 @@ export const Inspector: React.FC = () => {
 
       {(layer.type === 'text' || layer.type === 'multiplier' || layer.type === 'placeholder') && layer.text && (
         <Section title={layer.type === 'multiplier' ? 'Çarpan' : 'Metin'}>
-          <TextInput value={layer.text.text} multiline={layer.type !== 'multiplier'} onChange={(v) => up({ text: { ...layer.text!, text: v } })} />
+          <TextInput
+            value={layer.textTemplate ?? layer.text.text}
+            multiline={layer.type !== 'multiplier'}
+            onChange={(v) => up(layer.textTemplate !== undefined ? { textTemplate: v, text: { ...layer.text!, text: v } } : { text: { ...layer.text!, text: v } })}
+          />
+          {layer.textTemplate !== undefined && <p className="text-[10px] text-neutral-500">{'{alan}'} yerleri Hikâye Stüdyosu › Veriler’den doldurulur.</p>}
           {layer.type !== 'placeholder' && (
             <Row label="Stil">
               <Select<TextStyle>

@@ -468,3 +468,116 @@ export function drawFruit(ctx: Ctx, kind: Fruit, x: number, y: number, r: number
   }
   ctx.restore();
 }
+
+/** Animated orange-gold frame around the video window, with optional bulbs, fruits and 777. */
+export function drawStoryFrame(ctx: Ctx, f: import('../types').FrameSettings, t: number, w: number, h: number) {
+  ctx.clearRect(0, 0, w, h);
+  const { x, y, w: ww, h: wh } = f.window;
+  const L = x - ww / 2;
+  const T = y - wh / 2;
+  const th = f.thickness;
+  const r = f.radius;
+  const rr = (pad: number) => {
+    ctx.beginPath();
+    ctx.roundRect(L - pad, T - pad, ww + pad * 2, wh + pad * 2, r + pad);
+  };
+  // soft shadow under the frame
+  ctx.save();
+  ctx.shadowColor = 'rgba(60,10,0,0.55)';
+  ctx.shadowBlur = 30;
+  ctx.lineWidth = th;
+  ctx.strokeStyle = f.colorB;
+  rr(th / 2);
+  ctx.stroke();
+  ctx.restore();
+  // moving gold gradient band
+  const off = (t * 0.25) % 1;
+  const g = ctx.createLinearGradient(L - th, T - th + off * wh * 2 - wh, L + ww + th, T + wh + th + off * wh * 2 - wh);
+  g.addColorStop(0, f.colorB);
+  g.addColorStop(0.25, '#FFF3B0');
+  g.addColorStop(0.5, f.colorA);
+  g.addColorStop(0.75, '#FFF3B0');
+  g.addColorStop(1, f.colorB);
+  ctx.lineWidth = th;
+  ctx.strokeStyle = g;
+  rr(th / 2);
+  ctx.stroke();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#5A1E00';
+  rr(0);
+  ctx.stroke();
+  rr(th);
+  ctx.stroke();
+  if (f.lights) {
+    // bulbs along the frame, chasing
+    const per = 2 * (ww + wh + th * 2);
+    const n = Math.round(per / 46);
+    for (let i = 0; i < n; i++) {
+      let d = (i / n) * per;
+      const W2 = ww + th;
+      const H2 = wh + th;
+      let px: number;
+      let py: number;
+      if (d < W2) {
+        px = L - th / 2 + d;
+        py = T - th / 2;
+      } else if ((d -= W2) < H2) {
+        px = L + ww + th / 2;
+        py = T - th / 2 + d;
+      } else if ((d -= H2) < W2) {
+        px = L + ww + th / 2 - d;
+        py = T + wh + th / 2;
+      } else {
+        d -= W2;
+        px = L - th / 2;
+        py = T + wh + th / 2 - d;
+      }
+      const on = (Math.floor(t * 8) + i) % 3 === 0;
+      const rb = th * 0.22;
+      const bg = ctx.createRadialGradient(px, py, 0, px, py, rb * 2.4);
+      bg.addColorStop(0, on ? 'rgba(255,255,240,1)' : 'rgba(255,220,140,0.75)');
+      bg.addColorStop(0.45, on ? 'rgba(255,214,90,0.9)' : 'rgba(230,140,20,0.6)');
+      bg.addColorStop(1, 'rgba(255,160,0,0)');
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      ctx.arc(px, py, rb * 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  if (f.fruits) {
+    const s = th * 1.6;
+    const corners: [number, number, Fruit][] = [
+      [L - th * 0.2, T - th * 0.2, 'cherry'],
+      [L + ww + th * 0.2, T - th * 0.2, 'lemon'],
+      [L - th * 0.2, T + wh + th * 0.2, 'watermelon'],
+      [L + ww + th * 0.2, T + wh + th * 0.2, 'grapes'],
+    ];
+    corners.forEach(([cx, cy, k], i) => drawFruit(ctx, k, cx, cy + Math.sin(t * 2 + i) * 5, s, Math.sin(t * 1.5 + i) * 0.15));
+  }
+  if (f.sevens) {
+    const fs = th * 2.2;
+    const draw7 = (cx: number, cy: number, i: number) => {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(1 + Math.sin(t * 3 + i) * 0.05, 1 + Math.sin(t * 3 + i) * 0.05);
+      ctx.font = `900 italic ${Math.round(fs)}px ${FONT_FAMILY}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = fs * 0.16;
+      ctx.strokeStyle = '#5A1A00';
+      ctx.strokeText('777', 0, 0);
+      ctx.lineWidth = fs * 0.07;
+      ctx.strokeStyle = '#FFD54A';
+      ctx.strokeText('777', 0, 0);
+      const gg = ctx.createLinearGradient(0, -fs / 2, 0, fs / 2);
+      gg.addColorStop(0, '#FF6E6E');
+      gg.addColorStop(1, '#C62828');
+      ctx.fillStyle = gg;
+      ctx.fillText('777', 0, 0);
+      ctx.restore();
+    };
+    draw7(L + ww * 0.13, T - th * 2.1, 0);
+    draw7(L + ww * 0.87, T - th * 2.1, 1);
+  }
+}
