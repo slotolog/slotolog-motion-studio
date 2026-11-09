@@ -8,6 +8,7 @@ import { deleteProject, downloadBlob, loadProject, exportProjectFile, importProj
 import { formatTime } from '../lib/player';
 import type { Aspect } from '../types';
 import { Btn, Modal, Select } from './ui';
+import { FormatBuilderModal } from './FormatBuilder';
 
 const SAVE_LABEL = { saved: '✓ Kaydedildi', saving: 'Kaydediliyor…', unsaved: '● Değişiklik var', error: '⚠ Kaydedilemedi' };
 
@@ -204,7 +205,7 @@ export const TopBar: React.FC = () => {
   const saveState = useStore((s) => s.saveState);
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
-  const [modal, setModal] = useState<'projects' | 'export' | null>(null);
+  const [modal, setModal] = useState<'projects' | 'export' | 'formats' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const st = useStore.getState();
 
@@ -232,7 +233,7 @@ export const TopBar: React.FC = () => {
             {project.size.width}×{project.size.height}
           </span>
         )}
-        {(['9:16', '1:1', '16:9'] as Aspect[]).map((a) => (
+        {(['9:16', '4:5', '1:1', '16:9'] as Aspect[]).map((a) => (
           <button
             key={a}
             onClick={() => st.setAspect(a)}
@@ -250,6 +251,9 @@ export const TopBar: React.FC = () => {
         ↷
       </Btn>
       <Btn small onClick={() => confirm('Boş yeni proje açılsın mı? (Mevcut proje kayıtlı)') && st.loadIntoEditor(emptyProject(project.aspect))}>Yeni</Btn>
+      <Btn small onClick={() => setModal('formats')} data-testid="open-format-builder" title="Toplu Reklam Formatı Oluşturucu: 9:16 ve 4:5 kopyalar + MP4">
+        Formatlar
+      </Btn>
       <Btn small onClick={() => setModal('projects')} data-testid="open-projects">
         Projelerim
       </Btn>
@@ -280,6 +284,7 @@ export const TopBar: React.FC = () => {
       </Btn>
       {modal === 'projects' && <ProjectsModal onClose={() => setModal(null)} />}
       {modal === 'export' && <ExportModal onClose={() => setModal(null)} />}
+      {modal === 'formats' && <FormatBuilderModal onClose={() => setModal(null)} />}
     </div>
   );
 };

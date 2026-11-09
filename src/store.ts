@@ -13,6 +13,7 @@ import { projectAudio } from './lib/music';
 import { SFX } from './lib/sfx';
 import { LOOPING_EFFECTS } from './lib/anim';
 import { rampPatch } from './lib/speedramp';
+import { reformatProject } from './lib/reformat';
 import { ASPECT_SIZES, projectSize } from './types';
 
 type Updater = (p: Project) => Project;
@@ -579,6 +580,8 @@ export const useStore = create<State>((set, get) => {
     setAspect: (aspect) =>
       commit((p) => {
         if (p.aspect === aspect && !p.size) return p;
+        // 9:16 ↔ 4:5 (same width): lay the layers out again instead of shrinking everything
+        if (!p.size && ((p.aspect === '9:16' && aspect === '4:5') || (p.aspect === '4:5' && aspect === '9:16'))) return { ...reformatProject(p, aspect), id: p.id, name: p.name };
         const from = projectSize(p);
         const to = ASPECT_SIZES[aspect];
         const sx = to.width / from.width;

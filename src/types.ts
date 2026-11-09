@@ -1,7 +1,8 @@
-export type Aspect = '9:16' | '1:1' | '16:9';
+export type Aspect = '9:16' | '4:5' | '1:1' | '16:9';
 
 export const ASPECT_SIZES: Record<Aspect, { width: number; height: number }> = {
   '9:16': { width: 1080, height: 1920 },
+  '4:5': { width: 1080, height: 1350 },
   '1:1': { width: 1080, height: 1080 },
   '16:9': { width: 1920, height: 1080 },
 };
@@ -299,6 +300,8 @@ export interface Project {
   updatedAt: number;
   audio?: ProjectAudio;
   story?: StoryData;
+  /** set on a format copy made by the Toplu Reklam Formatı Oluşturucu: the source project and the format */
+  variantOf?: { sourceId: string; aspect: Aspect };
 }
 
 export interface CompositionProps extends Record<string, unknown> {

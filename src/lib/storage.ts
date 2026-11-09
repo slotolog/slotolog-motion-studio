@@ -138,3 +138,55 @@ export async function listUserTemplates(): Promise<UserTemplate[]> {
 }
 
 export const deleteUserTemplate = (id: string) => del(id, templateStore);
+
+/**
+ * Saves a format copy (Toplu Reklam Formatı Oluşturucu) as an independent project: media files are copied
+ * under new ids, so deleting either project never affects the other. An earlier copy of the same source
+ * and format is replaced (no duplicate test copies); the source project is never changed.
+ */
+export async function saveFormatVariant(source: Project, variant: Project): Promise<Project> {
+  const aspect = variant.aspect;
+  const all = await listProjects();
+  let existing: Project | undefined;
+  for (const s of all) {
+    const q = await loadProject(s.id);
+    if (q?.variantOf?.sourceId === source.id && q.variantOf.aspect === aspect) {
+      existing = q;
+      break;
+    }
+  }
+  const idMap: Record<string, string> = {};
+  for (const a of variant.assets) {
+    if (a.src) continue;
+    const nid = uid();
+    idMap[a.id] = nid;
+    const b = await getAssetBlob(a.id);
+    if (b) await saveAssetBlob(nid, b);
+  }
+  let json = JSON.stringify(variant);
+  for (const [o, n] of Object.entries(idMap)) json = json.split(`"${o}"`).join(`"${n}"`);
+  const out: Project = { ...(JSON.parse(json) as Project), id: existing?.id ?? uid(), updatedAt: Date.now(), variantOf: { sourceId: source.id, aspect } };
+  if (existing) await Promise.all(existing.assets.filter((a) => !a.src).map((a) => del(a.id, assetStore)));
+  await set(out.id, out, projectStore);
+  return out;
+}
+
+/** object URLs for a stored project's media (for rendering it without opening it in the editor) */
+export async function assetUrlsFor(p: Project, brandUrl: (src: string) => string): Promise<Record<string, string>> {
+  const urls: Record<string, string> = {};
+  for (const a of p.assets) {
+    if (a.src) urls[a.id] = brandUrl(a.src);
+    else {
+      const b = await getAssetBlob(a.id);
+      if (b) urls[a.id] = URL.createObjectURL(b);
+    }
+  }
+  return urls;
+}
+
+/** media of a stored project whose file is not in the browser any more (reported, never replaced) */
+export async function missingAssets(p: Project): Promise<Asset[]> {
+  const out: Asset[] = [];
+  for (const a of p.assets) if (!a.src && !(await getAssetBlob(a.id))) out.push(a);
+  return out;
+}
