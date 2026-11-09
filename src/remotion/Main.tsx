@@ -136,6 +136,19 @@ const StoryText: React.FC<{ layer: Layer }> = ({ layer }) => {
 };
 
 /** Zoom inside the layer box (cropped), optionally growing over the layer's life. */
+/** shows only part of the source picture (the box keeps its size, the cut parts are hidden) */
+const MediaCrop: React.FC<{ layer: Layer; children: React.ReactNode }> = ({ layer, children }) => {
+  const c = layer.mediaCrop;
+  if (!c || (!c.top && !c.bottom && !c.left && !c.right)) return <>{children}</>;
+  const w = 1 / Math.max(0.1, 1 - c.left - c.right);
+  const h = 1 / Math.max(0.1, 1 - c.top - c.bottom);
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', left: `${-c.left * w * 100}%`, top: `${-c.top * h * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` }}>{children}</div>
+    </div>
+  );
+};
+
 const MediaZoom: React.FC<{ layer: Layer; children: React.ReactNode }> = ({ layer, children }) => {
   const frame = useCurrentFrame();
   const z = layer.mediaZoom;
@@ -212,14 +225,26 @@ const SubtitleLayer: React.FC<{ layer: Layer }> = ({ layer }) => {
   const story = React.useContext(StoryContext);
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const cues = React.useMemo(() => (story ? story.subtitles.cues.map((c) => ({ ...c, text: fillTemplate(c.text, story.fields) })) : []), [story]);
-  if (!story?.subtitles.enabled) return null;
+  const own = !!layer.cues;
+  const cues = React.useMemo(
+    () => (own ? layer.cues! : story ? story.subtitles.cues : []).map((c) => ({ ...c, text: fillTemplate(c.text, story?.fields) })),
+    [own, layer.cues, story],
+  );
+  if (!own && !story?.subtitles.enabled) return null;
   return (
     <div style={{ position: 'absolute', left: layer.x - layer.width / 2, top: layer.y - layer.height / 2, width: layer.width, height: layer.height }}>
-      <SubtitleView cues={cues} style={layer.subtitleStyle ?? defaultSubtitleStyle()} t={(layer.start + frame) / fps} width={layer.width} height={layer.height} />
+      <SubtitleView cues={cues} style={layer.subtitleStyle ?? defaultSubtitleStyle()} t={own ? frame / fps : (layer.start + frame) / fps} width={layer.width} height={layer.height} />
     </div>
   );
 };
+
+/** volume automation: linear between points, constant outside */
+function volumeKeyAt(keys: { t: number; v: number }[], t: number) {
+  const k = [...keys].sort((a, b) => a.t - b.t);
+  if (t <= k[0].t) return k[0].v;
+  for (let i = 1; i < k.length; i++) if (t <= k[i].t) return k[i - 1].v + ((k[i].v - k[i - 1].v) * (t - k[i - 1].t)) / Math.max(1e-6, k[i].t - k[i - 1].t);
+  return k[k.length - 1].v;
+}
 
 /** music volume factor while a voice-over is speaking (0.25 s ramps) */
 function duckAt(ranges: [number, number][], f: number, fps: number) {
@@ -275,6 +300,7 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
           if (fi > 0 && f < fi) v *= f / fi;
           if (fo > 0 && f > layer.duration - fo) v *= Math.max(0, (layer.duration - f) / fo);
           if (channel === 'music' && voiceRanges.length) v *= duckAt(voiceRanges, layer.start + f, fps);
+          if (layer.volumeKeys?.length) v *= volumeKeyAt(layer.volumeKeys, f / fps);
           return v;
         }}
       />
@@ -367,7 +393,9 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
         )}
         <div style={{ position: 'absolute', inset: 0, filter: filters.length ? filters.join(' ') : undefined }}>
           <MediaZoom layer={layer}>
-            <LayerContent layer={layer} url={url} shine={fx.shine} fps={fps} duck={gameRanges.length && layer.type === 'video' ? (f: number) => duckAt(gameRanges, layer.start + f, fps) : undefined} />
+            <MediaCrop layer={layer}>
+              <LayerContent layer={layer} url={url} shine={fx.shine} fps={fps} duck={gameRanges.length && layer.type === 'video' ? (f: number) => duckAt(gameRanges, layer.start + f, fps) : undefined} />
+            </MediaCrop>
           </MediaZoom>
         </div>
       </div>

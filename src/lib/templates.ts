@@ -540,7 +540,72 @@ export function bigWinStoryTemplate(): Project {
   return rebuildStory(p);
 }
 
+/**
+ * Slotolog Big Win Frame — reusable frame for big win videos:
+ * logo on top, the game recording in a gold-orange frame, bonus banner + 18+ note at the bottom,
+ * subtitles above the bonus area. Every part is an ordinary, editable layer.
+ */
+export const BIG_WIN_WINDOW = { x: 540, y: 855, w: 662, h: 1200 };
+export function bigWinFrameTemplate(): Project {
+  const p = emptyProject('9:16', 'Slotolog Big Win Frame');
+  p.durationInFrames = s(30);
+  const D = p.durationInFrames;
+  const win = { ...BIG_WIN_WINDOW };
+  const bg = backgroundLayer(p, { style: 'dark', colorA: '#FF8E16', colorB: '#1E1E1E', rayColor: '#FF8E16', rays: 14, speed: 0.5, bokeh: true }, 'Arka plan (koyu gri)');
+  const glow = particlesLayer(p, { kind: 'sparkles', count: 26, speed: 0.6, size: 30, seed: 77 }, 'Kenar ışıltıları (altın)');
+  glow.opacity = 0.85;
+  const symbols = particlesLayer(p, { kind: 'fruitFrame', count: 6, speed: 0.5, size: 80, seed: 12 }, 'Kenar slot sembolleri');
+  symbols.opacity = 0.45;
+  symbols.visible = false; // optional: turn on for slot symbols around the edges
+  const game = baseLayer(
+    {
+      type: 'placeholder',
+      name: 'Oyun videosu (değiştir)',
+      x: win.x,
+      y: win.y,
+      width: win.w,
+      height: win.h,
+      objectFit: 'cover',
+      text: { text: 'OYUN VİDEOSU\nMedya › videon › ⇄ ile uygula', fontSize: 40, style: 'white', color: '#fff', strokeColor: '#000', strokeWidth: 0, extrude: false, italic: false },
+    },
+    p,
+  );
+  const fr = frameLayer(p, { name: 'Slotolog çerçevesi' });
+  fr.frame = { ...fr.frame!, window: win, radius: 28, thickness: 24, colorA: '#FFD45A', colorB: '#FF8E16', lights: true, fruits: false, sevens: false };
+  const logo = brandLayer(p, 'logoWhite', 560, { name: 'Slotolog logo', y: 128 });
+  logo.effects = [makeEffect('shine', 30, { duration: D, speed: 0.3, intensity: 0.55 })];
+  const bonus = textLayer(p, { text: '100.000 TL + 450 FS', fontSize: 94, style: 'gold', strokeColor: '#5A1500', strokeWidth: 10, extrude: true, italic: true }, {
+    name: 'Bonus tutarı', y: 1548, width: 1040, height: 124,
+  });
+  bonus.effects = [makeEffect('pulse', 30, { duration: D, speed: 0.5, intensity: 0.08 }), makeEffect('shine', 30, { duration: D, speed: 0.25, intensity: 0.5 })];
+  const welcome = textLayer(p, { text: 'HOŞ GELDİN BONUSU', fontSize: 50, style: 'white', color: '#FFFFFF', strokeColor: '#1E1E1E', strokeWidth: 8, extrude: false }, {
+    name: 'Bonus açıklaması', y: 1638, width: 1000, height: 70,
+  });
+  const btn = buttonLayer(p, 'BONUSU AL', { name: 'Buton: BONUSU AL', y: 1748, width: 540, height: 116 });
+  btn.button = { ...btn.button!, fontSize: 60, colorTop: '#FFD45A', colorBottom: '#FF7A00', textColor: '#FFFFFF' };
+  btn.effects = [makeEffect('pulse', 30, { duration: D, speed: 1.1, intensity: 0.45 }), makeEffect('glow', 30, { duration: D, color: '#FFD45A', speed: 1.1, intensity: 0.4 })];
+  const legal = textLayer(p, { text: '18+ · Sorumlu oyna · Kampanya koşulları geçerlidir', fontSize: 27, style: 'solid', color: '#E8E8E8', strokeColor: '#000000', strokeWidth: 3, extrude: false }, {
+    name: 'Yasal not (18+ / sorumlu oyun)', y: 1872, width: 1040, height: 40,
+  });
+  const subs = baseLayer(
+    {
+      type: 'subtitles',
+      name: 'Altyazı (örnek)',
+      x: win.x,
+      y: 1240,
+      width: 900,
+      height: 190,
+      subtitleStyle: { fontSize: 64, color: '#FFFFFF', strokeColor: '#000000', strokeWidth: 10, highlight: '#FF8E16', box: false, shadow: true },
+      cues: [{ id: 'c1', text: 'İşte *büyük kazanç* anı!', start: 0.5, end: 3 }],
+    },
+    p,
+  );
+  p.layers = [bg, symbols, glow, game, fr, logo, bonus, welcome, btn, legal, subs];
+  return p;
+}
+
 export const TEMPLATES = [
+  { id: 'bigwinframe', name: '★ Slotolog Big Win Frame', desc: 'Logo, altın çerçeve, oyun videosu, bonus alanı, altyazı · yeniden kullanılabilir', make: bigWinFrameTemplate },
   { id: 'bigwinstory', name: '🎬 Büyük Kazanç Hikâyesi', desc: 'Oyun kaydı + seslendirme + altyazı, 6 sahne, çerçeve', make: bigWinStoryTemplate },
   { id: 'bombparty2music', name: '★ Bomb Party 2.0 — Music Edition', desc: 'Müzik ekle: bombalar vuruşlara göre dans eder · 18 sn', make: bombParty2MusicTemplate },
   { id: 'bombparty2', name: '★ Slotolog 1000X Bomb Party 2.0', desc: 'Kamera, Dance Pro, özgün sesler, müziğe hazır · 18 sn', make: bombParty2Template },

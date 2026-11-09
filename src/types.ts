@@ -198,6 +198,12 @@ export interface Layer {
   playbackRate?: number;
   /** variable speed (speed ramp) for video layers; overrides trimStart / playbackRate */
   speedRamp?: SpeedRamp;
+  /** crop of the source picture (fractions 0–0.45 per side), e.g. to hide a phone's status / browser bars */
+  mediaCrop?: { top: number; bottom: number; left: number; right: number };
+  /** subtitles layer with its own lines (seconds from the layer start); *word* = highlighted */
+  cues?: SubtitleCue[];
+  /** volume automation of audio layers: multiplier points (seconds from the layer start), linear in between */
+  volumeKeys?: { t: number; v: number }[];
   /** rewind effect for video layers: scrubs the source backwards from → to (seconds) over the layer */
   rewind?: { from: number; to: number; vhs?: boolean };
   /** zoom inside the layer box (cropped): scale and focus point 0..1 */
@@ -319,6 +325,8 @@ export interface SubtitleStyle {
   strokeWidth: number;
   highlight: string;
   box: boolean;
+  /** soft drop shadow under the letters */
+  shadow?: boolean;
 }
 
 export type StoryFieldKey =

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSelectedLayer, useStore } from '../store';
 import { RewindEditor, SpeedRampEditor } from './SpeedRampEditor';
+import { CropEditor, FrameEditor, SubtitleLayerEditor, VolumeKeysEditor } from './LayerExtras';
 import { BEAT_TRIGGER_EFFECTS, EASING_LABELS, EFFECT_META, LOOPING_EFFECTS, MUSIC_EFFECTS, propAt } from '../lib/anim';
 import { SFX, SFX_KEYS } from '../lib/sfx';
 import { projectAudio } from '../lib/music';
@@ -740,6 +741,7 @@ export const Inspector: React.FC = () => {
               ]}
             />
           </Row>
+          <CropEditor layer={layer} />
           {layer.type === 'video' && (
             <Btn small onClick={() => st.fitProjectToVideo(layer.id)} data-testid="fit-project-to-video">
               Projeyi bu videonun orijinal oranına ayarla
@@ -750,6 +752,8 @@ export const Inspector: React.FC = () => {
       {layer.type === 'video' && !layer.rewind && <SpeedRampEditor layer={layer} />}
       {layer.type === 'video' && !layer.speedRamp && <RewindEditor layer={layer} />}
       {layer.type === 'audio' && <MusicLayerSettings layer={layer} />}
+      {layer.type === 'subtitles' && <SubtitleLayerEditor layer={layer} />}
+      {layer.type === 'frame' && layer.frame && <FrameEditor layer={layer} />}
       {(layer.type === 'video' || layer.type === 'audio') && (
         <Section title="Ses">
           {layer.type === 'video' && <Toggle value={!!layer.loop} onChange={(v) => up({ loop: v })} label="Döngü (video bitince başa sar)" />}
@@ -757,6 +761,7 @@ export const Inspector: React.FC = () => {
           <Row label="Ses düzeyi">
             <Slider value={layer.volume ?? 1} min={0} max={layer.type === 'audio' ? 4 : 1} onChange={(v) => up({ volume: v })} />
           </Row>
+          {layer.type === 'audio' && <VolumeKeysEditor layer={layer} />}
         </Section>
       )}
 

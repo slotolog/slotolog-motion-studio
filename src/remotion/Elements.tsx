@@ -301,18 +301,32 @@ export const FrameCanvas: React.FC<{ settings: FrameSettings }> = ({ settings })
   return <canvas ref={ref} width={width} height={height} style={{ width: '100%', height: '100%', display: 'block' }} />;
 };
 
-function wrap(text: string, maxChars: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let cur = '';
-  for (const w of words) {
-    if ((cur + ' ' + w).trim().length > maxChars && cur) {
-      lines.push(cur);
-      cur = w;
-    } else cur = (cur + ' ' + w).trim();
+
+/** words of a subtitle line; text between *stars* is highlighted (a word may mix both: *Slotolog*'da) */
+type SubWord = { w: string; parts: { t: string; hl: boolean }[] };
+function subtitleWords(text: string): SubWord[] {
+  const words: SubWord[] = [];
+  let hl = false;
+  let cur: SubWord | null = null;
+  for (const ch of text) {
+    if (ch === '*') {
+      hl = !hl;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      cur = null;
+      continue;
+    }
+    if (!cur) {
+      cur = { w: '', parts: [] };
+      words.push(cur);
+    }
+    cur.w += ch;
+    const last = cur.parts[cur.parts.length - 1];
+    if (last && last.hl === hl) last.t += ch;
+    else cur.parts.push({ t: ch, hl });
   }
-  if (cur) lines.push(cur);
-  return lines.slice(0, 3);
+  return words;
 }
 
 /** Subtitle of the current moment (cues are in composition seconds). */
@@ -321,8 +335,20 @@ export const SubtitleView: React.FC<{ cues: SubtitleCue[]; style: SubtitleStyle;
   if (!cue) return null;
   const age = t - cue.start;
   const pop = 1 + Math.max(0, 0.12 - age) * 1.2;
-  const opacity = Math.min(1, age / 0.08);
-  const lines = wrap(cue.text, Math.max(8, Math.floor(width / (style.fontSize * 0.6))));
+  const opacity = Math.min(1, age / 0.08, Math.max(0, (cue.end - t) / 0.06));
+  const words = subtitleWords(cue.text);
+  const maxChars = Math.max(8, Math.floor(width / (style.fontSize * 0.6)));
+  const lines: SubWord[][] = [];
+  let cur: SubWord[] = [];
+  const len = (ws: { w: string }[]) => ws.reduce((a, x) => a + x.w.length + 1, -1);
+  for (const w of words) {
+    if (cur.length && len([...cur, w]) > maxChars) {
+      lines.push(cur);
+      cur = [w];
+    } else cur.push(w);
+  }
+  if (cur.length) lines.push(cur);
+  lines.splice(3);
   const lh = style.fontSize * 1.15;
   const top = height / 2 - ((lines.length - 1) * lh) / 2;
   const common = {
@@ -332,26 +358,41 @@ export const SubtitleView: React.FC<{ cues: SubtitleCue[]; style: SubtitleStyle;
     textAnchor: 'middle' as const,
     dominantBaseline: 'central' as const,
   };
-  const longest = Math.max(...lines.map((l) => l.length));
+  const longest = Math.max(...lines.map((l) => len(l)));
   const boxW = Math.min(width, longest * style.fontSize * 0.62 + 60);
+  const spans = (l: SubWord[], fill?: boolean) =>
+    l.flatMap((x, j) =>
+      x.parts.map((pt, k) => (
+        <tspan key={`${j}-${k}`} fill={fill ? (pt.hl ? style.highlight : style.color) : undefined}>
+          {(j && !k ? ' ' : '') + pt.t}
+        </tspan>
+      )),
+    );
   return (
     <svg
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      style={{ overflow: 'visible', display: 'block', opacity, transform: `scale(${pop})`, transformOrigin: 'center' }}
+      style={{
+        overflow: 'visible',
+        display: 'block',
+        opacity,
+        transform: `scale(${pop})`,
+        transformOrigin: 'center',
+        filter: style.shadow ? 'drop-shadow(0px 6px 8px rgba(0,0,0,0.55))' : undefined,
+      }}
       data-testid="subtitle"
     >
       {style.box && <rect x={(width - boxW) / 2} y={top - lh * 0.7} width={boxW} height={lines.length * lh + lh * 0.4} rx={24} fill="rgba(20,10,0,0.55)" />}
       {style.strokeWidth > 0 &&
         lines.map((l, i) => (
           <text key={'s' + i} x={width / 2} y={top + i * lh} {...common} fill={style.strokeColor} stroke={style.strokeColor} strokeWidth={style.strokeWidth * 2} strokeLinejoin="round">
-            {l}
+            {spans(l)}
           </text>
         ))}
       {lines.map((l, i) => (
         <text key={'f' + i} x={width / 2} y={top + i * lh} {...common} fill={style.color}>
-          {l}
+          {spans(l, true)}
         </text>
       ))}
     </svg>
