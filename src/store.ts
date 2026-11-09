@@ -73,6 +73,7 @@ interface State {
   resetOverrides: (prefix: string) => void;
   setSpeedRamp: (layerId: string, ramp: SpeedRamp | undefined, record?: boolean) => void;
   fitProjectToVideo: (layerId: string) => void;
+  fitGameToFrame: (layerId?: string) => void;
   addVoiceFile: (file: File) => Promise<Asset>;
   normalizeLayer: (layerId: string, targetDb?: number) => Promise<number | null>;
   setBeatGrid: (assetId: string, grid: { bpm: number; firstBeat: number; beatsPerBar?: number }) => void;
@@ -398,6 +399,30 @@ export const useStore = create<State>((set, get) => {
       const l = get().project.layers.find((x) => x.id === layerId);
       if (l) get().updateLayer(layerId, rampPatch(l, ramp, get().project.fps), record);
     },
+    fitGameToFrame: (layerId) =>
+      commit((p) => {
+        const fr = p.layers.find((l) => l.type === 'frame' && l.frame);
+        const g = p.layers.find((l) => (layerId ? l.id === layerId : l.gameSlot));
+        if (!fr?.frame || !g) return p;
+        const area = fr.frame.area ?? fr.frame.window;
+        const a = p.assets.find((x) => x.id === g.assetId);
+        const c = g.mediaCrop ?? { top: 0, bottom: 0, left: 0, right: 0 };
+        // ratio of what is visible from the source (after crop); a placeholder keeps the full area
+        const r = a?.width && a.height ? (a.width * (1 - c.left - c.right)) / (a.height * (1 - c.top - c.bottom)) : area.w / area.h;
+        let w = area.w;
+        let h = Math.round(w / r);
+        if (h > area.h) {
+          h = area.h;
+          w = Math.round(h * r);
+        }
+        const win = { x: area.x, y: area.y, w, h };
+        return {
+          ...p,
+          layers: p.layers.map((l) =>
+            l.id === fr.id ? { ...l, frame: { ...l.frame!, window: win } } : l.id === g.id ? { ...l, x: win.x, y: win.y, width: w, height: h, objectFit: 'cover' as const } : l,
+          ),
+        };
+      }),
     fitProjectToVideo: (layerId) =>
       commit((p) => {
         const l = p.layers.find((x) => x.id === layerId);
@@ -528,9 +553,11 @@ export const useStore = create<State>((set, get) => {
             height = Math.round(width / r);
           }
           const loop = a.kind === 'video' && !!a.duration && a.duration * p.fps < l.duration;
-          return { ...l, type: a.kind, assetId, width, height, name: a.name, loop, objectFit: l.objectFit ?? (a.kind === 'video' ? 'cover' : 'contain') };
+          return { ...l, type: a.kind, assetId, width, height, name: l.gameSlot ? `Oyun videosu: ${a.name}` : a.name, loop, objectFit: l.objectFit ?? (a.kind === 'video' ? 'cover' : 'contain') };
         }),
       );
+      // game slot of a frame template: size the frame window to the new video and centre it
+      if (get().project.layers.find((l) => l.id === layerId)?.gameSlot) get().fitGameToFrame(layerId);
     },
     removeAsset: (assetId) =>
       commit((p) => ({ ...p, assets: p.assets.filter((a) => a.id !== assetId), layers: p.layers.filter((l) => l.assetId !== assetId) })),

@@ -481,7 +481,18 @@ export function drawStoryFrame(ctx: Ctx, f: import('../types').FrameSettings, t:
     ctx.beginPath();
     ctx.roundRect(L - pad, T - pad, ww + pad * 2, wh + pad * 2, r + pad);
   };
-  // soft shadow under the frame
+  // outer glow (breathing slightly) and soft shadow under the frame
+  const glow = f.glow ?? 0;
+  if (glow > 0) {
+    ctx.save();
+    ctx.shadowColor = `rgba(255,150,30,${Math.min(1, 0.55 * glow)})`;
+    ctx.shadowBlur = 40 * glow * (0.85 + 0.15 * Math.sin(t * 2.2));
+    ctx.lineWidth = th;
+    ctx.strokeStyle = f.colorB;
+    rr(th / 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   ctx.save();
   ctx.shadowColor = 'rgba(60,10,0,0.55)';
   ctx.shadowBlur = 30;

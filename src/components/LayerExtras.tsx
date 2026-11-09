@@ -22,6 +22,11 @@ export const CropEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
           </label>
         ))}
       </div>
+      {layer.gameSlot && (
+        <Btn small className="mt-1" data-testid="crop-fit" onClick={() => useStore.getState().fitGameToFrame(layer.id)}>
+          Kırpmadan sonra çerçeveye yeniden sığdır
+        </Btn>
+      )}
     </div>
   );
 };
@@ -155,11 +160,20 @@ export const FrameEditor: React.FC<{ layer: Layer }> = ({ layer }) => {
           <ColorInput value={f.colorB} onChange={(v) => set({ colorB: v })} />
         </label>
       </div>
+      <label className="mt-2 block text-[11px] text-neutral-400">
+        Çerçeve parlaklığı (dış ışık)
+        <NumInput value={f.glow ?? 0} step={0.1} digits={1} min={0} max={2} onChange={(v) => set({ glow: v })} />
+      </label>
       <div className="mt-1 flex flex-wrap gap-3">
         <Toggle value={f.lights} onChange={(v) => set({ lights: v })} label="Işıklar" />
         <Toggle value={f.fruits} onChange={(v) => set({ fruits: v })} label="Köşe meyveleri" />
         <Toggle value={f.sevens} onChange={(v) => set({ sevens: v })} label="777" />
       </div>
+      {f.area && (
+        <Btn small className="mt-2 mr-1" data-testid="fit-game-to-frame" onClick={() => useStore.getState().fitGameToFrame()}>
+          Pencereyi oyun videosuna uydur (ortala, sığdır)
+        </Btn>
+      )}
       <Btn
         small
         className="mt-2"

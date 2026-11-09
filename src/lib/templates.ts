@@ -604,7 +604,81 @@ export function bigWinFrameTemplate(): Project {
   return p;
 }
 
+/**
+ * Slotolog Premium Big Win Frame — premium vertical ad frame: logo + slogan ribbon on top, a large
+ * gold-orange casino frame for any game recording (auto-fit), original vector decorations
+ * (coins, 7, bell, cherry, gem, glows) as separate layers, a bonus card, CTA and the legal line.
+ */
+export const PREMIUM_AREA = { x: 540, y: 915, w: 960, h: 1020 };
+export function premiumBigWinFrameTemplate(): Project {
+  const p = emptyProject('9:16', 'Slotolog Premium Big Win Frame');
+  p.durationInFrames = s(20);
+  const D = p.durationInFrames;
+  const fx = (type: Parameters<typeof makeEffect>[0], o: Parameters<typeof makeEffect>[2] = {}) => makeEffect(type, 30, { duration: D, ...o });
+  const decor = (key: Parameters<typeof brandLayer>[1], name: string, width: number, x: number, y: number, extra: Partial<Project['layers'][number]> = {}) =>
+    brandLayer(p, key, width, { name, x, y, ...extra });
+  const bg = backgroundLayer(p, { style: 'dark', colorA: '#6A2BC2', colorB: '#141216', rayColor: '#FF8E16', rays: 16, speed: 0.35, bokeh: true }, 'Arka plan (koyu, ışık hareketli)');
+  const vTop = decor('decorGlowViolet', 'Işık · mor (sol üst)', 760, 130, 520, { opacity: 0.85, effects: [fx('pulse', { speed: 0.35, intensity: 0.12 })] });
+  const vBot = decor('decorGlowViolet', 'Işık · mor (sağ alt)', 820, 960, 1500, { opacity: 0.8, effects: [fx('pulse', { speed: 0.3, intensity: 0.12 })] });
+  const oLogo = decor('decorGlowOrange', 'Işık · logo arkası', 640, 540, 165, { opacity: 0.7, effects: [fx('pulse', { speed: 0.4, intensity: 0.1 })] });
+  const sparkle = particlesLayer(p, { kind: 'sparkles', count: 34, speed: 0.5, size: 26, seed: 31 }, 'Altın ışıltılar');
+  sparkle.opacity = 0.9;
+  const coins = [
+    decor('decorCoin', 'Dekor · coin (sol üst)', 130, 58, 640, { rotation: -18, effects: [fx('float', { speed: 0.45, intensity: 0.5 })] }),
+    decor('decorCoin', 'Dekor · coin (sol alt)', 100, 40, 1180, { rotation: 12, effects: [fx('float', { speed: 0.6, intensity: 0.45 })] }),
+    decor('decorCoin', 'Dekor · coin (sağ üst)', 116, 1030, 780, { rotation: 20, effects: [fx('float', { speed: 0.5, intensity: 0.5 })] }),
+    decor('decorCoin', 'Dekor · coin (sağ alt)', 92, 1048, 1290, { rotation: -10, effects: [fx('float', { speed: 0.4, intensity: 0.45 })] }),
+  ];
+  const area = { ...PREMIUM_AREA };
+  const game = baseLayer(
+    {
+      type: 'placeholder',
+      name: 'Oyun videosu (değiştir)',
+      gameSlot: true,
+      x: area.x,
+      y: area.y,
+      width: area.w,
+      height: area.h,
+      objectFit: 'cover',
+      text: { text: 'OYUN VİDEOSU\nMedya › videon › ⇄ ile uygula\nçerçeve otomatik sığar', fontSize: 44, style: 'white', color: '#fff', strokeColor: '#000', strokeWidth: 0, extrude: false, italic: false },
+    },
+    p,
+  );
+  const fr = frameLayer(p, { name: 'Premium çerçeve (altın-turuncu)' });
+  fr.frame = { ...fr.frame!, window: { ...area }, area, radius: 30, thickness: 22, colorA: '#FFD45A', colorB: '#FF8E16', lights: true, fruits: false, sevens: false, glow: 0.9 };
+  const cherry = decor('decorCherry', 'Dekor · kiraz (sol üst)', 168, 92, 372, { rotation: -12, effects: [fx('sway', { speed: 0.5, intensity: 0.35 })] });
+  const gem = decor('decorGem', 'Dekor · mücevher (sağ üst)', 150, 990, 378, { rotation: 10, effects: [fx('float', { speed: 0.5, intensity: 0.4 }), fx('shine', { speed: 0.3, intensity: 0.5 })] });
+  const bell = decor('decorBell', 'Dekor · jackpot çanı (sol alt)', 176, 96, 1606, { rotation: -14, effects: [fx('sway', { speed: 0.6, intensity: 0.4 })] });
+  const seven = decor('decorSeven', 'Dekor · 7 (sağ alt)', 138, 990, 1604, { rotation: 10, effects: [fx('float', { speed: 0.55, intensity: 0.45 }), fx('shine', { speed: 0.35, intensity: 0.5 })] });
+  const logo = brandLayer(p, 'logoWhite', 700, { name: 'Slotolog logo', y: 156 });
+  logo.effects = [fx('shine', { speed: 0.3, intensity: 0.6 })];
+  const ribbon = decor('decorRibbon', 'Slogan kurdelesi', 660, 540, 318);
+  const slogan = textLayer(p, { text: 'BÜYÜK KAZANÇ BURADA', fontSize: 42, style: 'solid', color: '#FFFFFF', strokeColor: '#6E2C00', strokeWidth: 6, extrude: false }, {
+    name: 'Slogan (değiştir)', y: 316, width: 600, height: 60,
+  });
+  const card = decor('decorBonusCard', 'Bonus kartı', 720, 540, 1585, { effects: [fx('glow', { color: '#FF8E16', speed: 0.6, intensity: 0.35 })] });
+  const cardTitle = textLayer(p, { text: 'HOŞ GELDİN BONUSU', fontSize: 34, style: 'solid', color: '#FFD9A6', strokeColor: '#1E1E1E', strokeWidth: 4, extrude: false }, {
+    name: 'Bonus başlığı (değiştir)', y: 1506, width: 600, height: 46,
+  });
+  const amount = textLayer(p, { text: '100.000 TL', fontSize: 106, style: 'gold', strokeColor: '#5A1500', strokeWidth: 10, extrude: true, italic: false }, {
+    name: 'Bonus tutarı (değiştir)', y: 1580, width: 680, height: 132,
+  });
+  amount.effects = [fx('shine', { speed: 0.25, intensity: 0.5 })];
+  const fs = textLayer(p, { text: '+450 FS', fontSize: 60, style: 'solid', color: '#FFFFFF', strokeColor: '#7A3A00', strokeWidth: 7, extrude: false }, {
+    name: 'Free spin teklifi (değiştir)', y: 1656, width: 600, height: 76,
+  });
+  const btn = buttonLayer(p, 'BONUSU AL', { name: 'Buton: BONUSU AL (değiştir)', y: 1792, width: 600, height: 116 });
+  btn.button = { ...btn.button!, fontSize: 64, colorTop: '#FFE45C', colorBottom: '#FF9F1C', textColor: '#1E1E1E' };
+  btn.effects = [fx('pulse', { speed: 1.0, intensity: 0.4 }), fx('glow', { color: '#FFD45A', speed: 1.0, intensity: 0.45 })];
+  const legal = textLayer(p, { text: '18+ · Sorumlu Oyna · Kampanya koşulları geçerlidir', fontSize: 31, style: 'solid', color: '#FFFFFF', strokeColor: '#000000', strokeWidth: 4, extrude: false }, {
+    name: 'Yasal not (değiştir)', y: 1886, width: 1040, height: 44,
+  });
+  p.layers = [bg, vTop, vBot, oLogo, sparkle, ...coins, game, fr, cherry, gem, bell, seven, logo, ribbon, slogan, card, cardTitle, amount, fs, btn, legal];
+  return p;
+}
+
 export const TEMPLATES = [
+  { id: 'premiumbigwin', name: '★ Slotolog Premium Big Win Frame', desc: 'Premium dikey reklam: logo + slogan, otomatik sığan oyun penceresi, dekorlar, bonus kartı, CTA', make: premiumBigWinFrameTemplate },
   { id: 'bigwinframe', name: '★ Slotolog Big Win Frame', desc: 'Logo, altın çerçeve, oyun videosu, bonus alanı, altyazı · yeniden kullanılabilir', make: bigWinFrameTemplate },
   { id: 'bigwinstory', name: '🎬 Büyük Kazanç Hikâyesi', desc: 'Oyun kaydı + seslendirme + altyazı, 6 sahne, çerçeve', make: bigWinStoryTemplate },
   { id: 'bombparty2music', name: '★ Bomb Party 2.0 — Music Edition', desc: 'Müzik ekle: bombalar vuruşlara göre dans eder · 18 sn', make: bombParty2MusicTemplate },

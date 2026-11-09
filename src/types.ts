@@ -198,6 +198,8 @@ export interface Layer {
   playbackRate?: number;
   /** variable speed (speed ramp) for video layers; overrides trimStart / playbackRate */
   speedRamp?: SpeedRamp;
+  /** the game video slot of a frame template: a new video is fitted into the frame automatically */
+  gameSlot?: boolean;
   /** crop of the source picture (fractions 0–0.45 per side), e.g. to hide a phone's status / browser bars */
   mediaCrop?: { top: number; bottom: number; left: number; right: number };
   /** subtitles layer with its own lines (seconds from the layer start); *word* = highlighted */
@@ -316,6 +318,10 @@ export interface FrameSettings {
   lights: boolean;
   fruits: boolean;
   sevens: boolean;
+  /** largest area the window may use; "fit to video" sizes the window inside it */
+  area?: { x: number; y: number; w: number; h: number };
+  /** strength of the frame's outer glow (0–2, default 1) */
+  glow?: number;
 }
 
 export interface SubtitleStyle {

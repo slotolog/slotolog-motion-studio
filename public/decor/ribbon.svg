@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 100" width="720" height="100">
+  <defs>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB042"/><stop offset="0.5" stop-color="#FF8E16"/><stop offset="1" stop-color="#C45A00"/></linearGradient>
+    <linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A84A00"/><stop offset="1" stop-color="#6E2C00"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFE48A"/><stop offset="0.5" stop-color="#FFF8D8"/><stop offset="1" stop-color="#FFE48A"/></linearGradient>
+  </defs>
+  <path d="M10 28 H96 V92 H10 L38 60 Z" fill="url(#e)"/>
+  <path d="M710 28 H624 V92 H710 L682 60 Z" fill="url(#e)"/>
+  <path d="M70 10 H650 L670 50 L650 90 H70 L50 50 Z" fill="#2A1200" opacity="0.5" transform="translate(0 4)"/>
+  <path d="M70 10 H650 L670 50 L650 90 H70 L50 50 Z" fill="url(#r)" stroke="url(#edge)" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M80 18 H640 L652 40 H68 Z" fill="#FFFFFF" opacity="0.22"/>
+</svg>
