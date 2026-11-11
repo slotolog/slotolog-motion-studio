@@ -7,11 +7,11 @@ import { getLicenseKey } from './export';
 import { ensureFonts } from './fonts';
 import { projectSize, type Project } from '../types';
 
-/** Telegram özel video emoji kuralları */
-export const TG = { size: 100, maxSeconds: 3, maxFps: 30, maxBytes: 256 * 1024 } as const;
+/** Telegram özel video emoji kuralları (video emoji dosyası en fazla 64 KB; 256 KB video sticker sınırıdır) */
+export const TG = { size: 100, maxSeconds: 3, maxFps: 30, maxBytes: 64_000 } as const; // 64 KB, ondalık sayılır (güvenli taraf)
 
-/** bitrates tried in order until the file fits in 256 KB (bits per second) */
-const BITRATES = [600_000, 420_000, 300_000, 210_000, 150_000, 100_000];
+/** bitrates tried in order until the file fits in 64 KB (bits per second) */
+const BITRATES = [150_000, 0, 0, 0, 0, 0]; // first guess; later tries are computed from the measured size
 
 export interface TgCheck {
   key: string;
@@ -29,7 +29,7 @@ export interface TgReport {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** renders a project as a transparent 100×100 VP9 WEBM (no audio). Lowers the bitrate step by step if it is over 256 KB. */
+/** renders a project as a transparent 100×100 VP9 WEBM (no audio). Lowers the bitrate step by step if it is over 64 KB. */
 export async function exportEmojiWebm(
   project: Project,
   assetUrls: Record<string, string>,
@@ -38,10 +38,12 @@ export async function exportEmojiWebm(
   await ensureFonts();
   const { width, height } = projectSize(project);
   const out = project.emoji?.outSize ?? TG.size;
-  let last: { blob: Blob; report: TgReport; bitrate: number; attempts: number } | null = null;
+  type Res = { blob: Blob; report: TgReport; bitrate: number; attempts: number };
+  let last: Res | null = null;
+  let best: Res | null = null;
+  let bitrate = BITRATES[0];
   for (let i = 0; i < BITRATES.length; i++) {
-    const bitrate = BITRATES[i];
-    opts.onProgress?.(0, i ? `${Math.round(bitrate / 1000)} kbps ile yeniden kodlanıyor (256 KB sınırı)` : 'VP9 kodlanıyor');
+    opts.onProgress?.(0, i ? `${Math.round(bitrate / 1000)} kbps ile yeniden kodlanıyor (64 KB sınırı)` : 'VP9 kodlanıyor');
     const result = await renderMediaOnWeb({
       composition: {
         id: 'slotolog-emoji',
@@ -66,11 +68,19 @@ export async function exportEmojiWebm(
     });
     const blob = await result.getBlob();
     const report = await checkTelegramWebm(blob, project);
-    last = { blob, report, bitrate, attempts: i + 1 };
-    if (blob.size <= TG.maxBytes) return last;
+    const cur: Res = { blob, report, bitrate, attempts: i + 1 };
+    last = cur;
+    if (blob.size <= TG.maxBytes) {
+      // fits: keep it; one more try a bit higher only if far below the limit (better quality)
+      if (!best || blob.size > best.blob.size) best = cur;
+      if (blob.size >= TG.maxBytes * 0.8 || i > 0) return best;
+    }
+    // next bitrate from the measured size, aiming at ~93 % of the limit
+    const next = Math.round((bitrate * (TG.maxBytes * 0.9)) / blob.size);
+    bitrate = Math.round(Math.max(40_000, Math.min(blob.size > TG.maxBytes ? bitrate * 0.92 : 400_000, next)));
     await sleep(10);
   }
-  return last!;
+  return (best ?? last)!;
 }
 
 async function readHead(blob: Blob, n: number) {
@@ -127,7 +137,7 @@ export async function checkTelegramWebm(blob: Blob, project?: Project): Promise<
   const stats = await video.computePacketStats();
   const fps = stats.packetCount / Math.max(0.001, duration);
   add('fps', 'Kare hızı ≤ 30 FPS', fps <= TG.maxFps + 0.5, `${fps.toFixed(1)} FPS · ${stats.packetCount} kare`);
-  add('bytes', 'Dosya ≤ 256 KB', blob.size <= TG.maxBytes, `${(blob.size / 1024).toFixed(1)} KB`);
+  add('bytes', 'Dosya ≤ 64 KB (64.000 bayt)', blob.size <= TG.maxBytes, `${blob.size.toLocaleString('tr-TR')} bayt`);
   add('audio', 'Ses izi yok', !audio, audio ? 'ses izi var' : 'yok');
   // alpha: side data in packets + decoded pixels really transparent
   let alphaPackets = 0;

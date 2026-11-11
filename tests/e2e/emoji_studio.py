@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from playwright.sync_api import sync_playwright
 # Telegram Emoji Studio: arayüz, emoji paketi, kategoriler, Slot Reel Assemble, parçalara ayırma, hız, döngü,
-# gerçek şeffaf VP9 WEBM (100×100, ≤3 sn, ≤256 KB, sessiz) — uygulamanın raporu + ffprobe/libvpx ile bağımsız doğrulama, ZIP.
+# gerçek şeffaf VP9 WEBM (100×100, ≤3 sn, ≤64 KB, sessiz) — uygulamanın raporu + ffprobe/libvpx ile bağımsız doğrulama, ZIP.
 out = os.path.abspath(sys.argv[1])
 URL = os.environ.get('BASE_URL', 'http://localhost:4173/')
 S = "window.__slotolog.getState()"
@@ -120,7 +120,7 @@ j = probe(f)
 v = j['streams'][0]
 ok(len(j['streams']) == 1 and v['codec_name'] == 'vp9' and v['width'] == 100 and v['height'] == 100 and v['r_frame_rate'] == '30/1', 'ffprobe: tek iz, VP9, 100×100, 30 FPS, ses yok')
 ok(v.get('tags', {}).get('alpha_mode') == '1', 'ffprobe: alpha_mode=1 (şeffaf WEBM)')
-ok(float(j['format']['duration']) <= 3.0 and int(j['format']['size']) <= 256 * 1024, f"süre {float(j['format']['duration']):.2f} sn ≤ 3, boyut {int(j['format']['size']) / 1024:.1f} KB ≤ 256")
+ok(float(j['format']['duration']) <= 3.0 and int(j['format']['size']) <= 64000, f"süre {float(j['format']['duration']):.2f} sn ≤ 3, boyut {int(j['format']['size']) / 1024:.1f} KB ≤ 64")
 fr = frames_rgba(f)
 corner = np.mean([fm[:6, :6, 3].mean() for fm in fr])
 center_max = max(fm[30:70, 10:90, 3].max() for fm in fr)
@@ -135,5 +135,5 @@ ok(rep.count('—  UYUMLU') == 2 and 'SORUNLU' not in rep, 'ZIP’teki uyumluluk
 for n in ['BONUS_100x100.webm', '1000X-Bomb_100x100.webm']:
     zipfile.ZipFile(zf).extract(n, out)
     jj = probe(f'{out}/{n}'); vv = jj['streams'][0]
-    ok(vv['codec_name'] == 'vp9' and vv['width'] == 100 and vv.get('tags', {}).get('alpha_mode') == '1' and int(jj['format']['size']) <= 262144, f'{n}: VP9 100×100 alfa, {int(jj["format"]["size"]) / 1024:.0f} KB')
+    ok(vv['codec_name'] == 'vp9' and vv['width'] == 100 and vv.get('tags', {}).get('alpha_mode') == '1' and int(jj['format']['size']) <= 64000, f'{n}: VP9 100×100 alfa, {int(jj["format"]["size"]) / 1024:.0f} KB')
 print('EMOJI STUDIO OK')

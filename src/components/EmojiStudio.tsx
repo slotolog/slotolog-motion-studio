@@ -328,11 +328,11 @@ interface Out {
 }
 
 export function reportText(rows: { name: string; file: string; report?: TgReport; bitrate?: number; attempts?: number }[]) {
-  const lines = ['SLOTOLOG · TELEGRAM ÖZEL EMOJİ UYUMLULUK RAPORU', `Kurallar: ${TG.size}×${TG.size} · WEBM/VP9 · alfa (şeffaf) · ≤${TG.maxSeconds} sn · ≤${TG.maxFps} FPS · ≤256 KB · ses yok · döngü`, ''];
+  const lines = ['SLOTOLOG · TELEGRAM ÖZEL EMOJİ UYUMLULUK RAPORU', `Kurallar: ${TG.size}×${TG.size} · WEBM/VP9 · alfa (şeffaf) · ≤${TG.maxSeconds} sn · ≤${TG.maxFps} FPS · ≤${Math.round(TG.maxBytes / 1024)} KB · ses yok · döngü`, ''];
   for (const r of rows) {
     lines.push(`${r.file}  —  ${r.report?.ok ? 'UYUMLU' : 'SORUNLU'}`);
     for (const c of r.report?.checks ?? []) lines.push(`   ${c.ok ? '✓' : '✗'} ${c.label}: ${c.value}`);
-    if (r.bitrate) lines.push(`   kodlama: VP9 ${Math.round(r.bitrate / 1000)} kbps${r.attempts && r.attempts > 1 ? ` (${r.attempts}. denemede 256 KB altına indi)` : ''}`);
+    if (r.bitrate) lines.push(`   kodlama: VP9 ${Math.round(r.bitrate / 1000)} kbps${r.attempts && r.attempts > 1 ? ` (${r.attempts}. denemede ${Math.round(TG.maxBytes / 1024)} KB altına indi)` : ''}`);
     lines.push('');
   }
   return lines.join('\n');
