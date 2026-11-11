@@ -206,7 +206,11 @@ export const Preview: React.FC = () => {
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
     >
-      <div data-stage className="relative shadow-[0_0_60px_rgba(255,142,22,0.15)]" style={{ width: dw, height: dh }}>
+      <div
+        data-stage
+        className={`relative shadow-[0_0_60px_rgba(255,142,22,0.15)] ${project.emoji ? 'bg-[repeating-conic-gradient(#2e2e2e_0_25%,#222_0_50%)] bg-[length:24px_24px]' : ''}`}
+        style={{ width: dw, height: dh }}
+      >
         <Player
           ref={playerRef}
           key={project.aspect}

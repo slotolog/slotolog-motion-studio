@@ -9,6 +9,7 @@ import { formatTime } from '../lib/player';
 import type { Aspect } from '../types';
 import { Btn, Modal, Select } from './ui';
 import { FormatBuilderModal } from './FormatBuilder';
+import { enterEmojiStudio, leaveEmojiStudio } from './EmojiStudio';
 
 const SAVE_LABEL = { saved: '✓ Kaydedildi', saving: 'Kaydediliyor…', unsaved: '● Değişiklik var', error: '⚠ Kaydedilemedi' };
 
@@ -230,10 +231,10 @@ export const TopBar: React.FC = () => {
       <div className="mx-auto flex items-center gap-1 rounded-md bg-[#121212] p-0.5">
         {project.size && (
           <span className="rounded bg-[#FF8E16] px-2.5 py-1 text-xs font-semibold text-black" title="Kaynak videonun orijinal oranı" data-testid="custom-size">
-            {project.size.width}×{project.size.height}
+            {project.emoji ? `Emoji · tasarım ${project.size.width}×${project.size.height} → 100×100` : `${project.size.width}×${project.size.height}`}
           </span>
         )}
-        {(['9:16', '4:5', '1:1', '16:9'] as Aspect[]).map((a) => (
+        {(project.emoji ? [] : (['9:16', '4:5', '1:1', '16:9'] as Aspect[])).map((a) => (
           <button
             key={a}
             onClick={() => st.setAspect(a)}
@@ -251,6 +252,15 @@ export const TopBar: React.FC = () => {
         ↷
       </Btn>
       <Btn small onClick={() => confirm('Boş yeni proje açılsın mı? (Mevcut proje kayıtlı)') && st.loadIntoEditor(emptyProject(project.aspect))}>Yeni</Btn>
+      {project.emoji ? (
+        <Btn small onClick={() => leaveEmojiStudio()} data-testid="leave-emoji-studio" title="Video editörüne dön (son video projesi)">
+          ← Video editörü
+        </Btn>
+      ) : (
+        <Btn small onClick={() => void enterEmojiStudio()} data-testid="open-emoji-studio" title="Telegram için animasyonlu özel emoji (100×100 WEBM/VP9)">
+          ✦ Emoji Studio
+        </Btn>
+      )}
       <Btn small onClick={() => setModal('formats')} data-testid="open-format-builder" title="Toplu Reklam Formatı Oluşturucu: 9:16 ve 4:5 kopyalar + MP4">
         Formatlar
       </Btn>

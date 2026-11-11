@@ -117,6 +117,7 @@ export const EFFECT_META: Record<
   goldExplosion: { label: 'Golden Explosion', icon: '🪙', defaultDuration: 2, description: 'Nesneden altın patlaması fışkırır' },
   beatSync: { label: 'Music Beat Sync', icon: '🎵', defaultDuration: 10, description: 'Müzikteki her vuruşta büyür ve parlar' },
   beatJump: { label: 'Beat Jump', icon: '🦘', defaultDuration: 10, description: 'Müzikte güçlü vuruşlarda zıplar (müzik gerekir)' },
+  coinFlip: { label: 'Coin Flip (Y ekseninde dönüş)', icon: '◐', defaultDuration: 3, description: 'Para gibi dikey eksende döner; sonra dinlenir' },
   beatTurn: { label: 'Beat Turn', icon: '↔', defaultDuration: 10, description: 'Vuruşlarda sırayla sağa-sola döner (müzik gerekir)' },
 };
 
@@ -134,7 +135,7 @@ export interface EffectContext {
 
 export const LOOPING_EFFECTS: EffectType[] = [
   'bounce', 'dance', 'sway', 'spin', 'pulse', 'glow', 'beat', 'float', 'shine', 'shake',
-  'dancePro', 'bouncePro', 'smoothRotate', 'groupDance', 'beatSync',
+  'dancePro', 'bouncePro', 'smoothRotate', 'groupDance', 'beatSync', 'coinFlip',
 ];
 export const MUSIC_EFFECTS: EffectType[] = ['dancePro', 'groupDance', 'goldExplosion', 'beatSync', 'impactShake', 'beatJump', 'beatTurn'];
 /** effects fired by individual beats: they support "every Nth beat" + offset */
@@ -201,6 +202,17 @@ export function computeEffects(
       }
       case 'spin': {
         out.dRot += t * 360 * sp * 0.75 * Math.max(0.1, k);
+        break;
+      }
+      case 'coinFlip': {
+        // one flip per period: turns during the first half (eased), rests during the second half
+        const period = 3 / sp;
+        const ph = (((t / period) % 1) + 1) % 1;
+        const q = ph < 0.5 ? smooth(ph / 0.5) : 1;
+        const turns = Math.max(1, Math.round(k));
+        // both faces read the right way round (no mirrored text half-way through)
+        out.scaleX *= Math.max(0.04, Math.abs(Math.cos(q * Math.PI * 2 * turns)));
+        out.brightness *= 1 + 0.25 * Math.abs(Math.sin(q * Math.PI * 2 * turns));
         break;
       }
       case 'pulse': {

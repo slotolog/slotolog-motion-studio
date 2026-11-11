@@ -6,7 +6,8 @@ import { buildMusicSync, projectAudio, type MusicSync } from '../lib/music';
 import { SFX, sfxUrl } from '../lib/sfx';
 import { rand } from '../lib/anim';
 import type { CompositionProps, Layer, ProjectAudio, SfxKey } from '../types';
-import { BackgroundCanvas, ButtonView, FrameCanvas, MultiplierSvg, ParticlesCanvas, Placeholder, ShineImage, SubtitleView, SvgText } from './Elements';
+import { BackgroundCanvas, ButtonView, FrameCanvas, MultiplierSvg, ParticlesCanvas, Placeholder, ReelImage, ShineImage, SubtitleView, SvgText } from './Elements';
+import { brandUrl } from '../lib/brand';
 import { fillTemplate, defaultSubtitleStyle } from '../lib/story';
 import { expandRamp } from '../lib/speedramp';
 import type { StoryData } from '../types';
@@ -23,9 +24,11 @@ import { drawCoin } from './draw';
 
 type Mix = Pick<ProjectAudio, 'musicVolume' | 'sfxVolume' | 'musicMuted' | 'sfxMuted' | 'voiceVolume' | 'voiceMuted' | 'duckMusic' | 'duckGame'>;
 
-const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput['shine']; fps: number; duck?: (layerFrame: number) => number }> = ({ layer, url, shine, fps, duck }) => {
+const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput['shine']; fps: number; duck?: (layerFrame: number) => number; reelSyms?: string[]; frame?: number }> = ({ layer, url, shine, fps, duck, reelSyms, frame }) => {
   switch (layer.type) {
     case 'image':
+      if (url && layer.reel)
+        return <ReelImage url={url} symbolUrls={reelSyms ?? []} width={layer.width} height={layer.height} reel={layer.reel} frame={frame ?? 0} duration={layer.duration} />;
       // layers with a light-reflection effect are drawn on a canvas
       if (url && layer.effects.some((e) => e.type === 'shine'))
         return <ShineImage url={url} width={layer.width} height={layer.height} fit={layer.objectFit ?? 'contain'} shine={shine ?? null} />;
@@ -394,7 +397,7 @@ const LayerView: React.FC<{ layer: Layer; assetUrls: Record<string, string>; mus
         <div style={{ position: 'absolute', inset: 0, filter: filters.length ? filters.join(' ') : undefined }}>
           <MediaZoom layer={layer}>
             <MediaCrop layer={layer}>
-              <LayerContent layer={layer} url={url} shine={fx.shine} fps={fps} duck={gameRanges.length && layer.type === 'video' ? (f: number) => duckAt(gameRanges, layer.start + f, fps) : undefined} />
+              <LayerContent layer={layer} url={url} shine={fx.shine} fps={fps} frame={frame} reelSyms={layer.reel ? layer.reel.symbols.map((x) => (x.includes('/') ? brandUrl(x) : assetUrls[x])).filter(Boolean) : undefined} duck={gameRanges.length && layer.type === 'video' ? (f: number) => duckAt(gameRanges, layer.start + f, fps) : undefined} />
             </MediaCrop>
           </MediaZoom>
         </div>
@@ -451,7 +454,7 @@ export const MainComposition: React.FC<CompositionProps> = ({ project, assetUrls
 
   return (
     <StoryContext.Provider value={project.story}>
-    <AbsoluteFill style={{ backgroundColor: '#000', overflow: 'hidden' }}>
+    <AbsoluteFill style={{ backgroundColor: project.emoji ? 'transparent' : '#000', overflow: 'hidden' }}>
       {project.layers.map((layer) => {
         if (!layer.visible || layer.type === 'camera') return null;
         const seq = (

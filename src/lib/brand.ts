@@ -30,6 +30,15 @@ export const BRAND_ASSETS = {
     height: 308,
     src: 'brand/slotolog-logo.png',
   },
+  logoMark: {
+    id: 'brand-logo-mark',
+    name: 'Slotolog işareti (oto + gülümseme, gerçek logodan)',
+    kind: 'image',
+    mime: 'image/png',
+    src: 'brand/slotolog-mark.png',
+    width: 454,
+    height: 308,
+  },
   mult1000: {
     id: 'brand-1000x',
     name: '1000X çarpan (bomba)',

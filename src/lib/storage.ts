@@ -12,6 +12,8 @@ export interface ProjectSummary {
   aspect: Project['aspect'];
   updatedAt: number;
   layers: number;
+  /** set for Telegram Emoji Studio projects */
+  emoji?: Project['emoji'];
 }
 
 export async function saveProject(p: Project): Promise<void> {
@@ -28,7 +30,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
   const all = await Promise.all(ids.map((id) => get<Project>(id, projectStore)));
   return all
     .filter((p): p is Project => !!p)
-    .map((p) => ({ id: p.id, name: p.name, aspect: p.aspect, updatedAt: p.updatedAt, layers: p.layers.length }))
+    .map((p) => ({ id: p.id, name: p.name, aspect: p.aspect, updatedAt: p.updatedAt, layers: p.layers.length, emoji: p.emoji }))
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 

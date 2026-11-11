@@ -16,6 +16,7 @@
     "@remotion/player": "4.0.541",
     "@remotion/web-renderer": "4.0.541",
     "fflate": "0.8.2",
+    "gifenc": "1.0.3",
     "idb-keyval": "^6.3.0",
     "mediabunny": "1.64.0",
     "nanoid": "^6.0.2",

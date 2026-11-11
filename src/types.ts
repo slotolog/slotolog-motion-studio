@@ -76,7 +76,8 @@ export type EffectType =
   | 'goldExplosion'
   | 'beatSync'
   | 'beatJump'
-  | 'beatTurn';
+  | 'beatTurn'
+  | 'coinFlip';
 
 export type SfxKey = 'whoosh' | 'bounce' | 'coins' | 'sparkle' | 'riser' | 'button' | 'rewind';
 export type ZoomMode = 'in' | 'out' | 'inout';
@@ -209,6 +210,8 @@ export interface Layer {
   volumeKeys?: { t: number; v: number }[];
   /** rewind effect for video layers: scrubs the source backwards from → to (seconds) over the layer */
   rewind?: { from: number; to: number; vhs?: boolean };
+  /** Slot Reel Assemble effect (image layers) */
+  reel?: ReelAssemble;
   /** zoom inside the layer box (cropped): scale and focus point 0..1 */
   mediaZoom?: { scale: number; x: number; y: number; animate?: boolean };
   colorFilter?: 'none' | 'sepia' | 'bw' | 'warm';
@@ -300,6 +303,8 @@ export interface Project {
   updatedAt: number;
   audio?: ProjectAudio;
   story?: StoryData;
+  /** Telegram Emoji Studio project (100×100 transparent WEBM/VP9 emoji, ≤3 s loop) */
+  emoji?: EmojiMeta;
   /** set on a format copy made by the Toplu Reklam Formatı Oluşturucu: the source project and the format */
   variantOf?: { sourceId: string; aspect: Aspect };
 }
@@ -427,3 +432,39 @@ export interface StoryData {
 }
 
 export type NarrationStyle = 'excited' | 'story' | 'cinematic';
+
+/** Telegram Emoji Studio */
+export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
+export interface EmojiMeta {
+  category: string;
+  /** design canvas is square (project.size, e.g. 512×512); exported at 100×100 */
+  outSize?: number;
+  /** strip emojis: "Slotolog Logo Assemble (şerit)" part 1 of 3 … */
+  strip?: { group: string; index: number; count: number };
+  note?: string;
+}
+
+/** Slot Reel Assemble: the image is cut into vertical reels; symbols roll down each reel and it lands on its own slice. */
+export interface ReelAssemble {
+  /** cut positions inside the image, as fractions of its width (sorted, between 0 and 1) */
+  cuts: number[];
+  /** reel symbols: brand paths (decor/…, brand/…) or project asset ids */
+  symbols: string[];
+  /** frames at the start where the pieces stand apart */
+  scatterFrames: number;
+  /** frame (inside the layer) where the first reel lands */
+  firstLand: number;
+  /** frames between reels landing */
+  stagger: number;
+  /** frames at the end in which the pieces drift apart again (seamless loop) */
+  releaseFrames: number;
+  /** how far apart the pieces stand (0–1) */
+  scatter: number;
+  /** landing overshoot (0–1) */
+  bounce: number;
+  glowColor: string;
+  /** symbols that pass on the first reel; later reels get one more each */
+  spins: number;
+  /** light sweep after assembling */
+  shine: boolean;
+}

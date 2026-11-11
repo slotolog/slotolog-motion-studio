@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { continueRender, delayRender, useCurrentFrame, useVideoConfig } from 'remotion';
+import { useCurrentFrame, useDelayRender, useVideoConfig } from 'remotion';
 import { FONT_FAMILY } from '../lib/fonts';
-import type { BackgroundSettings, ButtonSettings, FrameSettings, ParticleSettings, SubtitleCue, SubtitleStyle, TextSettings } from '../types';
+import type { BackgroundSettings, ButtonSettings, FrameSettings, ParticleSettings, ReelAssemble, SubtitleCue, SubtitleStyle, TextSettings } from '../types';
+import { reelState } from '../lib/reel';
 import { drawBackground, drawParticles, drawStoryFrame } from './draw';
 
 const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -233,6 +234,8 @@ export const ShineImage: React.FC<{
   const ref = useRef<HTMLCanvasElement>(null);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const handle = useRef<number | null>(null);
+  // scoped to the renderer that mounts this component (the editor players must not swallow the export's wait)
+  const { delayRender, continueRender } = useDelayRender();
   if (handle.current === null) handle.current = delayRender(`Görsel yükleniyor: ${url}`);
   const release = () => {
     if (handle.current !== null && handle.current !== -1) {
@@ -396,5 +399,141 @@ export const SubtitleView: React.FC<{ cues: SubtitleCue[]; style: SubtitleStyle;
         </text>
       ))}
     </svg>
+  );
+};
+
+/**
+ * Slot Reel Assemble: the image is cut into reels drawn on a canvas — symbols roll down each reel and it lands on its own
+ * slice of the real image (no redrawn letters). Glow / bounce / light sweep when assembled; pieces drift apart to loop.
+ */
+export const ReelImage: React.FC<{
+  url: string;
+  symbolUrls: string[];
+  width: number;
+  height: number;
+  reel: ReelAssemble;
+  frame: number;
+  duration: number;
+}> = ({ url, symbolUrls, width, height, reel, frame, duration }) => {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [imgs, setImgs] = useState<{ logo: HTMLImageElement; syms: HTMLImageElement[] } | null>(null);
+  const handle = useRef<number | null>(null);
+  const { delayRender, continueRender } = useDelayRender();
+  if (handle.current === null) handle.current = delayRender(`Makara görselleri yükleniyor: ${url}`);
+  const release = () => {
+    if (handle.current !== null && handle.current !== -1) {
+      continueRender(handle.current);
+      handle.current = -1;
+    }
+  };
+  const key = [url, ...symbolUrls].join('|');
+  useEffect(() => {
+    let alive = true;
+    Promise.all([loadImage(url), ...symbolUrls.map((u) => loadImage(u).catch(() => null))])
+      .then(([logo, ...syms]) => alive && setImgs({ logo: logo as HTMLImageElement, syms: syms.filter(Boolean) as HTMLImageElement[] }))
+      .catch(release);
+    return () => {
+      alive = false;
+    };
+  }, [key]);
+  useEffect(() => release, []);
+  const W = Math.max(1, Math.round(width));
+  const H = Math.max(1, Math.round(height));
+  const padX = Math.round(W * 0.35);
+  const padY = Math.round(H * 0.6);
+  useLayoutEffect(() => {
+    const c = ref.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx || !imgs) return;
+    const { logo, syms } = imgs;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, c.width, c.height);
+    const st = reelState(reel, frame, duration);
+    // image rect inside the layer box (contain)
+    const s = Math.min(W / logo.naturalWidth, H / logo.naturalHeight);
+    const dw = logo.naturalWidth * s;
+    const dh = logo.naturalHeight * s;
+    const ox = padX + (W - dw) / 2;
+    const oy = padY + (H - dh) / 2;
+    const cx = padX + W / 2;
+    const cy = padY + H / 2;
+    ctx.translate(cx, cy);
+    ctx.scale(st.scale, st.scale);
+    ctx.translate(-cx, -cy);
+    const glowBase = Math.max(st.glow, 0);
+    st.columns.forEach((col, i) => {
+      const sx = col.x0 * logo.naturalWidth;
+      const sw = (col.x1 - col.x0) * logo.naturalWidth;
+      const x = ox + col.x0 * dw;
+      const w = (col.x1 - col.x0) * dw;
+      const colCx = x + w / 2;
+      const colCy = oy + dh / 2;
+      ctx.save();
+      ctx.translate(colCx + col.dx * dw, colCy + col.dy * dh);
+      ctx.rotate((col.rot * Math.PI) / 180);
+      ctx.scale(col.scale, col.scale);
+      ctx.translate(-colCx, -colCy);
+      const g = Math.max(glowBase, col.glow);
+      const drawSlice = (yOff: number) => {
+        if (g > 0.02) {
+          ctx.shadowColor = reel.glowColor;
+          ctx.shadowBlur = dh * 0.35 * g;
+        }
+        ctx.drawImage(logo, sx, 0, sw, logo.naturalHeight, x, oy + yOff, w, dh);
+        ctx.shadowBlur = 0;
+      };
+      if (!col.rolling) drawSlice(0);
+      else {
+        // reel window = the column's own box; strip moves downward
+        ctx.beginPath();
+        ctx.rect(x - 1, oy, w + 2, dh);
+        ctx.clip();
+        for (let k = 0; k < col.items; k++) {
+          const y = oy + (col.offset - k) * dh; // item k sits k windows above, moving down
+          if (y > oy + dh || y + dh < oy) continue;
+          const yOff = y - oy;
+          if (k === 0 || k === col.items - 1) drawSlice(yOff);
+          else if (syms.length) {
+            const im = syms[(i * 3 + k) % syms.length];
+            const size = Math.min(w, dh) * 0.86;
+            const ar = im.naturalWidth / im.naturalHeight || 1;
+            const sw2 = ar >= 1 ? size : size * ar;
+            const sh2 = ar >= 1 ? size / ar : size;
+            const blur = Math.min(3, col.speed * 2.2);
+            for (let b = 0; b <= Math.round(blur); b++) {
+              ctx.globalAlpha = b === 0 ? 1 : 0.35 / b;
+              ctx.drawImage(im, x + (w - sw2) / 2, y + (dh - sh2) / 2 - b * col.speed * dh * 0.18, sw2, sh2);
+            }
+            ctx.globalAlpha = 1;
+          }
+        }
+      }
+      ctx.restore();
+    });
+    if (st.shine !== null) {
+      // light sweep, only on the logo's own pixels
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-atop';
+      const band = dh * 0.9;
+      const bx = ox - band + st.shine * (dw + band * 2);
+      ctx.translate(bx, cy);
+      ctx.rotate(0.5);
+      const gr = ctx.createLinearGradient(-band / 2, 0, band / 2, 0);
+      gr.addColorStop(0, 'rgba(255,255,255,0)');
+      gr.addColorStop(0.5, 'rgba(255,248,225,0.95)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gr;
+      ctx.fillRect(-band / 2, -dh * 3, band, dh * 6);
+      ctx.restore();
+    }
+    release();
+  }, [imgs, W, H, frame, duration, JSON.stringify(reel)]);
+  return (
+    <canvas
+      ref={ref}
+      width={W + padX * 2}
+      height={H + padY * 2}
+      style={{ position: 'absolute', left: -padX, top: -padY, width: W + padX * 2, height: H + padY * 2, display: 'block' }}
+    />
   );
 };

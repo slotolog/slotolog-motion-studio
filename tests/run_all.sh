@@ -25,6 +25,7 @@ python3 tests/e2e/bigwinframe.py $OUT
 python3 tests/e2e/premiumframe.py $OUT
 python3 tests/e2e/asset_library.py $OUT
 python3 tests/e2e/format_builder.py $OUT
+python3 tests/e2e/emoji_studio.py $OUT
 python3 tests/e2e/flow.py $OUT
 ffprobe -v error -show_entries stream=codec_type,codec_name,width,height:format=duration -of compact $OUT/flow.mp4
 echo "TÜM TESTLER TAMAM"
