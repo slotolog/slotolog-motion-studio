@@ -210,8 +210,10 @@ export interface Layer {
   volumeKeys?: { t: number; v: number }[];
   /** rewind effect for video layers: scrubs the source backwards from → to (seconds) over the layer */
   rewind?: { from: number; to: number; vhs?: boolean };
-  /** Slot Reel Assemble effect (image layers) */
+  /** Slot Reel Assemble effect (image layers; text layers with a premium glyph style) */
   reel?: ReelAssemble;
+  /** Premium 3D gold glyph (Telegram Emoji Studio digits); the text stays editable */
+  glyph?: GlyphStyle;
   /** zoom inside the layer box (cropped): scale and focus point 0..1 */
   mediaZoom?: { scale: number; x: number; y: number; animate?: boolean };
   colorFilter?: 'none' | 'sepia' | 'bw' | 'warm';
@@ -434,7 +436,7 @@ export interface StoryData {
 export type NarrationStyle = 'excited' | 'story' | 'cinematic';
 
 /** Telegram Emoji Studio */
-export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
+export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Premium Rakamlar', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
 export interface EmojiMeta {
   category: string;
   /** design canvas is square (project.size, e.g. 512×512); exported at 100×100 */
@@ -442,6 +444,8 @@ export interface EmojiMeta {
   /** strip emojis: "Slotolog Logo Assemble (şerit)" part 1 of 3 … */
   strip?: { group: string; index: number; count: number };
   note?: string;
+  /** Premium Rakamlar set member: which character and which animation style */
+  glyphSet?: { char: string; anim: 'reel' | 'pulse' };
 }
 
 /** Slot Reel Assemble: the image is cut into vertical reels; symbols roll down each reel and it lands on its own slice. */
@@ -467,4 +471,20 @@ export interface ReelAssemble {
   spins: number;
   /** light sweep after assembling */
   shine: boolean;
+  /** 'out' (default): fast start, overshoot; 'inout': speeds up, rolls, slows down and settles with a bounce (digits) */
+  ease?: 'out' | 'inout';
+}
+
+/** Premium Rakamlar: 3D gold glyph drawn on canvas (Montserrat Black) */
+export interface GlyphStyle {
+  /** brand accent used for the rim, the lower gold tones and the glow */
+  accent: string;
+  /** 0.6 – 1.4 */
+  brightness: number;
+  /** 3D depth in px (design canvas) */
+  depth: number;
+  /** 'reel' = Slot Reel (uses layer.reel), 'pulse' = Golden Pulse, 'static' = no motion */
+  anim: 'reel' | 'pulse' | 'static';
+  /** characters that roll past in the reel (default: digits) */
+  spin?: string;
 }

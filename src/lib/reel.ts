@@ -61,6 +61,17 @@ export function reelEase(p: number, bounce: number) {
   return 1 + c3 * Math.pow(q - 1, 3) + c1 * Math.pow(q - 1, 2);
 }
 
+const cubicInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+/** speeds up, rolls, slows down, passes the slot by a little and settles back (reel "clunk") */
+export function reelEaseInOut(p: number, bounce: number, windows = 1) {
+  // overshoot is measured in reel windows (≈14 % of one symbol), not in the whole strip
+  const ob = (0.14 * bounce) / Math.max(1, windows);
+  const q = clamp(p);
+  if (q < 0.78) return (1 + ob) * cubicInOut(q / 0.78);
+  const t = (q - 0.78) / 0.22;
+  return 1 + ob * Math.cos(t * Math.PI * 1.5) * (1 - t);
+}
+
 export const reelColumns = (r: ReelAssemble) => {
   const cuts = [...r.cuts].filter((c) => c > 0.01 && c < 0.99).sort((a, b) => a - b);
   const edges = [0, ...cuts, 1];
@@ -98,9 +109,10 @@ export function reelState(r: ReelAssemble, frame: number, duration: number): Ree
       rolling = true;
       const p = (f - start) / Math.max(1, land - start);
       apart = 1 - easeInOut(clamp(p / 0.45));
-      offset = (items - 1) * reelEase(p, r.bounce);
+      const E = (q: number) => (r.ease === 'inout' ? reelEaseInOut(q, r.bounce, items - 1) : reelEase(q, r.bounce));
+      offset = (items - 1) * E(p);
       const p2 = (f + 1 - start) / Math.max(1, land - start);
-      speed = Math.abs((items - 1) * reelEase(p2, r.bounce) - offset);
+      speed = Math.abs((items - 1) * E(p2) - offset);
     } else if (f >= relStart) {
       apart = easeInOut(clamp((f - relStart) / Math.max(1, r.releaseFrames)));
     }

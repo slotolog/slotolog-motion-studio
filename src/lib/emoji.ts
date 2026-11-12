@@ -238,5 +238,9 @@ export async function zipFiles(files: { name: string; blob: Blob }[]): Promise<B
   return new Blob([zipSync(entries, { level: 0 }) as BlobPart], { type: 'application/zip' });
 }
 
+const GLYPH_FILE: Record<string, string> = { '%': 'yuzde', '+': 'arti', '×': 'carpi', '₺': 'TL', '.': 'nokta', FS: 'FS' };
+
 export const emojiFileName = (p: Project, ext = 'webm') =>
-  `${(p.name.replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '') || 'slotolog-emoji').slice(0, 60)}_100x100.${ext}`;
+  p.emoji?.glyphSet
+    ? `Rakam_${GLYPH_FILE[p.emoji.glyphSet.char] ?? p.emoji.glyphSet.char}_${p.emoji.glyphSet.anim === 'pulse' ? 'GoldenPulse' : 'SlotReel'}_100x100.${ext}`
+    : `${(p.name.replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '') || 'slotolog-emoji').slice(0, 60)}_100x100.${ext}`;

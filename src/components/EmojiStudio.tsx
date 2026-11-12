@@ -4,11 +4,11 @@ import { useStore } from '../store';
 import { MainComposition } from '../remotion/Main';
 import { deleteProject, listProjects, loadProject, saveProject, assetUrlsFor, downloadBlob, type ProjectSummary } from '../lib/storage';
 import { brandUrl } from '../lib/brand';
-import { EMOJI_PRESETS, emojiProject } from '../lib/emojiTemplates';
+import { EMOJI_PRESETS, emojiProject, GLYPH_CHARS, GLYPH_REEL, glyphTokens, premiumGlyph, premiumGlyphSet } from '../lib/emojiTemplates';
 import { fitReel, fitToLoop, reelFor, setEmojiSpeed, splitLayer, emojiProblems } from '../lib/emojiOps';
 import { exportEmojiWebm, gifPreview, pngPreview, zipFiles, emojiFileName, TG, type TgReport } from '../lib/emoji';
 import { DEFAULT_REEL, reelColumns, reelMinFrames } from '../lib/reel';
-import { EMOJI_CATEGORIES, projectSize, type Project, type ReelAssemble } from '../types';
+import { EMOJI_CATEGORIES, projectSize, type GlyphStyle, type Project, type ReelAssemble } from '../types';
 import { Btn } from './ui';
 
 const SYMBOLS = [
@@ -248,6 +248,8 @@ export const EmojiLeft: React.FC = () => {
         </div>
       )}
 
+      <DigitPanel />
+
       <H4>Yeni emoji</H4>
       <div className="grid grid-cols-2 gap-1">
         {EMOJI_PRESETS.map((pr) => (
@@ -415,6 +417,12 @@ const ExportPanel: React.FC<{ list: ProjectSummary[] }> = ({ list }) => {
       </div>
       <div className="flex gap-1">
         <Btn small onClick={() => setPicked(Object.fromEntries(list.map((x) => [x.id, true])))}>Tümünü seç</Btn>
+        <Btn small data-testid="pick-digits-reel" onClick={() => setPicked(Object.fromEntries(list.filter((x) => x.emoji?.glyphSet?.anim === 'reel').map((x) => [x.id, true])))}>
+          Rakamlar · Reel
+        </Btn>
+        <Btn small data-testid="pick-digits-pulse" onClick={() => setPicked(Object.fromEntries(list.filter((x) => x.emoji?.glyphSet?.anim === 'pulse').map((x) => [x.id, true])))}>
+          Rakamlar · Pulse
+        </Btn>
         <Btn small variant="primary" disabled={busy || !Object.values(picked).some(Boolean)} onClick={() => run(Object.keys(picked).filter((k) => picked[k]), true)} data-testid="emoji-export-zip">
           ⬇ Seçilenleri ZIP
         </Btn>
@@ -517,3 +525,226 @@ export async function leaveEmojiStudio() {
   const { multiplierTemplate } = await import('../lib/templates');
   await st.loadIntoEditor(p ?? multiplierTemplate());
 }
+
+/* ---------------- Premium Rakamlar ---------------- */
+
+const ANIM_LABEL: Record<'reel' | 'pulse', string> = { reel: 'Slot Reel', pulse: 'Golden Pulse' };
+
+/** creates (or renews, never duplicates) the 16-glyph set for one animation style */
+export async function makeGlyphSet(anim: 'reel' | 'pulse', style: Partial<GlyphStyle> = {}) {
+  const existing = await listProjects();
+  const made = premiumGlyphSet(anim, style);
+  let renewed = 0;
+  for (const p of made) {
+    const old = existing.find((x) => x.emoji?.glyphSet?.char === p.emoji!.glyphSet!.char && x.emoji?.glyphSet?.anim === anim);
+    if (old) {
+      p.id = old.id;
+      renewed++;
+    }
+  }
+  for (const p of made.slice(1)) await saveProject(p);
+  await openEmoji(made[0]);
+  return { count: made.length, renewed };
+}
+
+/** applies the current glyph's colour / brightness / depth to every saved glyph of the same animation style */
+async function applyStyleToSet(style: GlyphStyle, anim: 'reel' | 'pulse', skipId: string) {
+  const list = await listProjects();
+  let n = 0;
+  for (const s of list) {
+    if (s.emoji?.glyphSet?.anim !== anim || s.id === skipId) continue;
+    const p = await loadProject(s.id);
+    if (!p) continue;
+    p.layers = p.layers.map((l) => (l.glyph ? { ...l, glyph: { ...l.glyph, accent: style.accent, brightness: style.brightness, depth: style.depth }, reel: l.reel ? { ...l.reel, glowColor: style.accent } : l.reel } : l));
+    await saveProject(p);
+    n++;
+  }
+  return n;
+}
+
+export const DigitPanel: React.FC = () => {
+  const project = useStore((s) => s.project);
+  const st = useStore.getState();
+  const [msg, setMsg] = useState('');
+  const glyphLayer = project.layers.find((l) => l.glyph && l.text);
+  const g = glyphLayer?.glyph;
+  const setGlyph = (patch: Partial<GlyphStyle>) => {
+    if (!glyphLayer || !g) return;
+    st.updateLayer(glyphLayer.id, { glyph: { ...g, ...patch }, reel: glyphLayer.reel && patch.accent ? { ...glyphLayer.reel, glowColor: patch.accent } : glyphLayer.reel });
+  };
+  return (
+    <div data-testid="digit-panel">
+      <H4>Premium Rakamlar</H4>
+      <div className="grid grid-cols-2 gap-1">
+        <Btn
+          small
+          variant="primary"
+          data-testid="digits-make-reel"
+          onClick={async () => {
+            const r = await makeGlyphSet('reel');
+            setMsg(`✓ ${r.count} rakam (Slot Reel) hazır${r.renewed ? ` · ${r.renewed} yenilendi` : ''}`);
+          }}
+        >
+          🎰 Rakam seti · Slot Reel
+        </Btn>
+        <Btn
+          small
+          data-testid="digits-make-pulse"
+          onClick={async () => {
+            const r = await makeGlyphSet('pulse');
+            setMsg(`✓ ${r.count} rakam (Golden Pulse) hazır${r.renewed ? ` · ${r.renewed} yenilendi` : ''}`);
+          }}
+        >
+          ✨ Rakam seti · Golden Pulse
+        </Btn>
+      </div>
+      {glyphLayer && g && (
+        <div className="mt-2 space-y-1.5 rounded border border-white/10 bg-[#141414] p-2" data-testid="glyph-style">
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="w-24 shrink-0">Karakter</span>
+            <select
+              data-testid="glyph-char"
+              className="min-w-0 flex-1 rounded border border-white/10 bg-[#121212] px-1 py-1"
+              value={glyphLayer.text!.text}
+              onChange={(e) => {
+                const ch = e.target.value;
+                st.updateLayer(glyphLayer.id, { text: { ...glyphLayer.text!, text: ch }, name: `Premium rakam “${ch}”` });
+                st.update((p) => ({ ...p, name: `Rakam ${ch} · ${ANIM_LABEL[g.anim === 'pulse' ? 'pulse' : 'reel']}`, emoji: { ...(p.emoji ?? { category: 'Premium Rakamlar' }), glyphSet: { char: ch, anim: g.anim === 'pulse' ? 'pulse' : 'reel' } } }));
+              }}
+            >
+              {GLYPH_CHARS.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-[11px]">
+            <span className="w-24 shrink-0">Vurgu rengi</span>
+            <input type="color" data-testid="glyph-accent" value={g.accent} onChange={(e) => setGlyph({ accent: e.target.value })} />
+            <button className="text-[10px] text-neutral-400 underline" onClick={() => setGlyph({ accent: '#FF8E16' })}>
+              #FF8E16
+            </button>
+          </label>
+          <Num label="Parlaklık" value={g.brightness} min={0.6} max={1.4} step={0.05} testid="glyph-brightness" onChange={(v) => setGlyph({ brightness: v })} />
+          <Num label="3D derinlik" value={g.depth} min={0} max={30} onChange={(v) => setGlyph({ depth: v })} />
+          <div className="flex items-center gap-1 text-[11px]">
+            <span className="w-24 shrink-0">Animasyon</span>
+            {(['reel', 'pulse'] as const).map((a) => (
+              <button
+                key={a}
+                data-testid={`glyph-anim-${a}`}
+                className={`rounded px-2 py-0.5 text-[10px] ${g.anim === a ? 'bg-[#FF8E16] text-black' : 'bg-white/10'}`}
+                onClick={() => {
+                  st.updateLayer(glyphLayer.id, { glyph: { ...g, anim: a }, reel: a === 'reel' ? (glyphLayer.reel ?? { ...GLYPH_REEL, glowColor: g.accent }) : undefined });
+                  const ch = glyphLayer.text!.text;
+                  st.update((p) => ({ ...p, name: `Rakam ${ch} · ${ANIM_LABEL[a]}`, emoji: { ...(p.emoji ?? { category: 'Premium Rakamlar' }), glyphSet: { char: ch, anim: a } } }));
+                }}
+              >
+                {ANIM_LABEL[a]}
+              </button>
+            ))}
+          </div>
+          <Btn
+            small
+            data-testid="glyph-apply-set"
+            onClick={async () => {
+              await saveProject(useStore.getState().project);
+              const n = await applyStyleToSet(g, g.anim === 'pulse' ? 'pulse' : 'reel', project.id);
+              setMsg(`✓ Renk, parlaklık ve derinlik ${n} rakama daha uygulandı`);
+            }}
+          >
+            Bu stili tüm {ANIM_LABEL[g.anim === 'pulse' ? 'pulse' : 'reel']} setine uygula
+          </Btn>
+        </div>
+      )}
+      {msg && <p className="mt-1 text-[10px] text-neutral-400" data-testid="digit-msg">{msg}</p>}
+      <SequencePreview />
+    </div>
+  );
+};
+
+/** Rakam Dizisi Önizleme: "100.000₺" → the matching emojis side by side, as in a Telegram message */
+const SequencePreview: React.FC = () => {
+  const project = useStore((s) => s.project);
+  const [text, setText] = useState('100.000₺');
+  const [anim, setAnim] = useState<'reel' | 'pulse'>('reel');
+  const [set, setSet] = useState<Record<string, Project>>({});
+  const [bg, setBg] = useState<'dark' | 'light'>('dark');
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const out: Record<string, Project> = {};
+      for (const s of await listProjects()) {
+        const gs = s.emoji?.glyphSet;
+        if (!gs || gs.anim !== anim || out[gs.char]) continue;
+        const p = s.id === project.id ? project : await loadProject(s.id);
+        if (p) out[gs.char] = p;
+      }
+      if (alive) setSet(out);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [anim, project.id, project.updatedAt]);
+  const toks = glyphTokens(text);
+  const tile = (ch: string, i: number, size: number) => {
+    if (ch === ' ') return <span key={i} style={{ width: size * 0.4 }} />;
+    const p = set[ch] ?? (GLYPH_CHARS.includes(ch) ? premiumGlyph(ch, anim) : null);
+    if (!p) return <span key={i} className="text-red-400" style={{ fontSize: size * 0.6 }} title="Sette yok">?</span>;
+    return (
+      <Player
+        key={`${i}-${ch}-${p.id}`}
+        component={MainComposition as unknown as React.FC<Record<string, unknown>>}
+        inputProps={{ project: p, assetUrls: {} }}
+        durationInFrames={p.durationInFrames}
+        fps={p.fps}
+        compositionWidth={projectSize(p).width}
+        compositionHeight={projectSize(p).height}
+        style={{ width: size, height: size }}
+        autoPlay
+        loop
+        controls={false}
+        acknowledgeRemotionLicense
+      />
+    );
+  };
+  const missing = toks.filter((c) => c !== ' ' && !GLYPH_CHARS.includes(c));
+  return (
+    <div className="mt-2 space-y-1.5" data-testid="sequence-preview">
+      <div className="text-[11px] font-semibold text-neutral-200">Rakam Dizisi Önizleme</div>
+      <div className="flex gap-1">
+        <input
+          data-testid="sequence-input"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="min-w-0 flex-1 rounded border border-white/10 bg-[#121212] px-2 py-1 text-[12px] text-white"
+          placeholder="100.000₺ · %150 · 1000× · +450 FS"
+        />
+        <select value={anim} onChange={(e) => setAnim(e.target.value as 'reel' | 'pulse')} className="rounded border border-white/10 bg-[#121212] px-1 text-[11px]" data-testid="sequence-anim">
+          <option value="reel">Slot Reel</option>
+          <option value="pulse">Golden Pulse</option>
+        </select>
+      </div>
+      <div className="flex gap-1">
+        {['100.000₺', '%150', '1000×', '+450 FS'].map((x) => (
+          <button key={x} className="rounded bg-white/10 px-1.5 py-0.5 text-[10px]" onClick={() => setText(x)}>
+            {x}
+          </button>
+        ))}
+        <button className="ml-auto rounded bg-white/10 px-1.5 py-0.5 text-[10px]" onClick={() => setBg(bg === 'dark' ? 'light' : 'dark')}>
+          {bg === 'dark' ? 'Açık sohbet' : 'Koyu sohbet'}
+        </button>
+      </div>
+      <div className={`overflow-x-auto rounded-xl p-2 ${bg === 'dark' ? 'bg-[#182533]' : 'bg-white'}`} data-testid="sequence-tiles">
+        <div className="flex items-end gap-[2px]">{toks.map((c, i) => tile(c, i, 44))}</div>
+        <div className={`mt-1.5 flex items-center gap-[1px] text-[13px] ${bg === 'dark' ? 'text-white' : 'text-black'}`}>
+          <span className="mr-1">Hoş geldin bonusu</span>
+          {toks.map((c, i) => tile(c, 1000 + i, 20))}
+        </div>
+      </div>
+      {missing.length > 0 && <p className="text-[10px] text-yellow-400">Sette olmayan karakter: {missing.join(' ')} (0–9 % + × ₺ . FS desteklenir)</p>}
+      <p className="text-[10px] text-neutral-500">
+        Sette kayıtlı rakamlar kullanılır; yoksa varsayılan stil gösterilir. Telegram emojileri tam aynı anda başlatmayabilir: rakamlar başta ve sonda net bekler, dizi yine düzgün okunur.
+      </p>
+    </div>
+  );
+};

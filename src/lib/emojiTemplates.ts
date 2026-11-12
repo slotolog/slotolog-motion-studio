@@ -2,7 +2,7 @@ import { makeEffect, textLayer, uid } from './factory';
 import { brandLayer } from './brand';
 import { DEFAULT_REEL, reelMinFrames } from './reel';
 import { fitToLoop } from './emojiOps';
-import type { EmojiMeta, Keyframe, Layer, Project, ReelAssemble } from '../types';
+import type { EmojiMeta, GlyphStyle, Keyframe, Layer, Project, ReelAssemble } from '../types';
 
 /** Telegram Emoji Studio — design canvas 512×512 (exported 100×100), 30 FPS, 3 s loop */
 export const EMOJI_CANVAS = 512;
@@ -155,6 +155,48 @@ export function emojiFreeSpin(): Project {
     goldWord(p, 'SPIN', 116, { name: 'SPIN', y: 330, effects: [loopFx('coinFlip', F, { speed: 1, phase: 0 }), loopFx('shine', F, { speed: 2.6 / 1.5, color: '#FFFFFF' })] }),
   );
   return p;
+}
+
+/* ---------------- Premium Rakamlar ---------------- */
+
+export const GLYPH_CHARS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '%', '+', '×', '₺', '.', 'FS'];
+/** ascii file / project names for the symbols */
+export const GLYPH_NAMES: Record<string, string> = { '%': 'yuzde', '+': 'arti', '×': 'carpi', '₺': 'TL', '.': 'nokta', FS: 'FS' };
+export const GLYPH_FONT = 486; // cap height ≈ 340 px on the 512 canvas → same height for every character
+export const GLYPH_BOX = 470;
+export const DEFAULT_GLYPH: GlyphStyle = { accent: '#FF8E16', brightness: 1, depth: 18, anim: 'reel' };
+/** Slot Reel timing shared by every digit: hold (sharp) → roll in from the top → land with a bounce → gold sweep → long sharp hold */
+export const GLYPH_REEL: ReelAssemble = { cuts: [], symbols: [], scatterFrames: 16, firstLand: 40, stagger: 0, releaseFrames: 0, scatter: 0, bounce: 0.9, glowColor: '#FF8E16', spins: 4, shine: true, ease: 'inout' };
+
+export const glyphLabel = (ch: string) => GLYPH_NAMES[ch] ?? ch;
+
+export function premiumGlyph(ch: string, anim: 'reel' | 'pulse' = 'reel', style: Partial<GlyphStyle> = {}): Project {
+  const p = emojiProject(`Rakam ${ch} · ${anim === 'reel' ? 'Slot Reel' : 'Golden Pulse'}`, { category: 'Premium Rakamlar', glyphSet: { char: ch, anim } });
+  const glyph: GlyphStyle = { ...DEFAULT_GLYPH, ...style, anim };
+  p.layers.push(
+    textLayer(
+      p,
+      { text: ch, fontSize: GLYPH_FONT, style: 'gold', strokeColor: '#1E1E1E', strokeWidth: 0, extrude: true, italic: false },
+      { name: `Premium rakam “${ch}”`, x: EMOJI_CANVAS / 2, y: EMOJI_CANVAS / 2, width: GLYPH_BOX, height: GLYPH_BOX, glyph, reel: anim === 'reel' ? { ...GLYPH_REEL, glowColor: glyph.accent } : undefined },
+    ),
+  );
+  return p;
+}
+
+export const premiumGlyphSet = (anim: 'reel' | 'pulse' = 'reel', style: Partial<GlyphStyle> = {}) => GLYPH_CHARS.map((ch) => premiumGlyph(ch, anim, style));
+
+/** splits "100.000₺", "+450 FS", "%150", "1000×" into set characters (FS is one emoji; x/X → ×; TL → ₺) */
+export function glyphTokens(s: string): string[] {
+  const out: string[] = [];
+  const t = s.replace(/TL/gi, '₺').replace(/[xX*]/g, '×');
+  for (let i = 0; i < t.length; i++) {
+    if (t.slice(i, i + 2).toUpperCase() === 'FS') {
+      out.push('FS');
+      i++;
+    } else if (t[i] !== ' ') out.push(t[i]);
+    else out.push(' ');
+  }
+  return out;
 }
 
 export interface EmojiPreset {

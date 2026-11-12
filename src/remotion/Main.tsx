@@ -8,6 +8,7 @@ import { rand } from '../lib/anim';
 import type { CompositionProps, Layer, ProjectAudio, SfxKey } from '../types';
 import { BackgroundCanvas, ButtonView, FrameCanvas, MultiplierSvg, ParticlesCanvas, Placeholder, ReelImage, ShineImage, SubtitleView, SvgText } from './Elements';
 import { brandUrl } from '../lib/brand';
+import { GlyphView } from './Glyph';
 import { fillTemplate, defaultSubtitleStyle } from '../lib/story';
 import { expandRamp } from '../lib/speedramp';
 import type { StoryData } from '../types';
@@ -55,6 +56,10 @@ const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput[
         <Placeholder label="Video bulunamadı" />
       );
     case 'text':
+      if (layer.text && layer.glyph)
+        return (
+          <GlyphView text={layer.text.text} fontSize={layer.text.fontSize} width={layer.width} height={layer.height} style={layer.glyph} reel={layer.reel} frame={frame ?? 0} duration={layer.duration} />
+        );
       return layer.text ? (
         <StoryText layer={layer} />
       ) : null;
