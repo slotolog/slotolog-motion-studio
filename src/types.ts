@@ -436,7 +436,7 @@ export interface StoryData {
 export type NarrationStyle = 'excited' | 'story' | 'cinematic';
 
 /** Telegram Emoji Studio */
-export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Premium Rakamlar', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
+export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Premium Rakamlar V2', 'Premium Rakamlar', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
 export interface EmojiMeta {
   category: string;
   /** design canvas is square (project.size, e.g. 512×512); exported at 100×100 */
@@ -445,7 +445,7 @@ export interface EmojiMeta {
   strip?: { group: string; index: number; count: number };
   note?: string;
   /** Premium Rakamlar set member: which character and which animation style */
-  glyphSet?: { char: string; anim: 'reel' | 'pulse' };
+  glyphSet?: { char: string; anim: GlyphAnim };
 }
 
 /** Slot Reel Assemble: the image is cut into vertical reels; symbols roll down each reel and it lands on its own slice. */
@@ -476,6 +476,9 @@ export interface ReelAssemble {
 }
 
 /** Premium Rakamlar: 3D gold glyph drawn on canvas (Montserrat Black) */
+/** set animation styles: reel = Slot Reel, pulse = Golden Pulse (V1), shine = Premium Shine (V2) */
+export type GlyphAnim = 'reel' | 'pulse' | 'shine';
+
 export interface GlyphStyle {
   /** brand accent used for the rim, the lower gold tones and the glow */
   accent: string;
@@ -483,8 +486,10 @@ export interface GlyphStyle {
   brightness: number;
   /** 3D depth in px (design canvas) */
   depth: number;
-  /** 'reel' = Slot Reel (uses layer.reel), 'pulse' = Golden Pulse, 'static' = no motion */
-  anim: 'reel' | 'pulse' | 'static';
+  /** 'reel' = Slot Reel (uses layer.reel), 'pulse' = Golden Pulse, 'shine' = Premium Shine (V2), 'static' = no motion */
+  anim: GlyphAnim | 'static';
+  /** 'orange' = Premium Rakamlar V2 görünümü (Inter Black, turuncu yüz); yoksa V1 altın görünüm */
+  look?: 'gold' | 'orange';
   /** characters that roll past in the reel (default: digits) */
   spin?: string;
 }

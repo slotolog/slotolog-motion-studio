@@ -2,7 +2,7 @@ import { makeEffect, textLayer, uid } from './factory';
 import { brandLayer } from './brand';
 import { DEFAULT_REEL, reelMinFrames } from './reel';
 import { fitToLoop } from './emojiOps';
-import type { EmojiMeta, GlyphStyle, Keyframe, Layer, Project, ReelAssemble } from '../types';
+import type { EmojiMeta, GlyphAnim, GlyphStyle, Keyframe, Layer, Project, ReelAssemble } from '../types';
 
 /** Telegram Emoji Studio — design canvas 512×512 (exported 100×100), 30 FPS, 3 s loop */
 export const EMOJI_CANVAS = 512;
@@ -170,20 +170,26 @@ export const GLYPH_REEL: ReelAssemble = { cuts: [], symbols: [], scatterFrames: 
 
 export const glyphLabel = (ch: string) => GLYPH_NAMES[ch] ?? ch;
 
-export function premiumGlyph(ch: string, anim: 'reel' | 'pulse' = 'reel', style: Partial<GlyphStyle> = {}): Project {
-  const p = emojiProject(`Rakam ${ch} · ${anim === 'reel' ? 'Slot Reel' : 'Golden Pulse'}`, { category: 'Premium Rakamlar', glyphSet: { char: ch, anim } });
-  const glyph: GlyphStyle = { ...DEFAULT_GLYPH, ...style, anim };
+/** Premium Rakamlar V2: Inter Black, turuncu parlak 3D yüz, yerinde duran Premium Shine animasyonu */
+export const GLYPH_V2_FONT = 452; // Inter cap ≈ 329 px on the 512 canvas — same height as V1
+export const DEFAULT_GLYPH_V2: GlyphStyle = { accent: '#FF8E16', brightness: 1, depth: 14, anim: 'shine', look: 'orange' };
+export const GLYPH_ANIM_LABEL: Record<GlyphAnim, string> = { reel: 'Slot Reel', pulse: 'Golden Pulse', shine: 'Premium V2' };
+
+export function premiumGlyph(ch: string, anim: GlyphAnim = 'reel', style: Partial<GlyphStyle> = {}): Project {
+  const v2 = anim === 'shine';
+  const p = emojiProject(`Rakam ${ch} · ${GLYPH_ANIM_LABEL[anim]}`, { category: v2 ? 'Premium Rakamlar V2' : 'Premium Rakamlar', glyphSet: { char: ch, anim } });
+  const glyph: GlyphStyle = { ...(v2 ? DEFAULT_GLYPH_V2 : DEFAULT_GLYPH), ...style, anim };
   p.layers.push(
     textLayer(
       p,
-      { text: ch, fontSize: GLYPH_FONT, style: 'gold', strokeColor: '#1E1E1E', strokeWidth: 0, extrude: true, italic: false },
+      { text: ch, fontSize: v2 ? GLYPH_V2_FONT : GLYPH_FONT, style: 'gold', strokeColor: '#1E1E1E', strokeWidth: 0, extrude: true, italic: false },
       { name: `Premium rakam “${ch}”`, x: EMOJI_CANVAS / 2, y: EMOJI_CANVAS / 2, width: GLYPH_BOX, height: GLYPH_BOX, glyph, reel: anim === 'reel' ? { ...GLYPH_REEL, glowColor: glyph.accent } : undefined },
     ),
   );
   return p;
 }
 
-export const premiumGlyphSet = (anim: 'reel' | 'pulse' = 'reel', style: Partial<GlyphStyle> = {}) => GLYPH_CHARS.map((ch) => premiumGlyph(ch, anim, style));
+export const premiumGlyphSet = (anim: GlyphAnim = 'reel', style: Partial<GlyphStyle> = {}) => GLYPH_CHARS.map((ch) => premiumGlyph(ch, anim, style));
 
 /** splits "100.000₺", "+450 FS", "%150", "1000×" into set characters (FS is one emoji; x/X → ×; TL → ₺) */
 export function glyphTokens(s: string): string[] {

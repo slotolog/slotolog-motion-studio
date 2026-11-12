@@ -5,8 +5,12 @@ import latin900i from '@fontsource/montserrat/files/montserrat-latin-900-italic.
 import latinExt900i from '@fontsource/montserrat/files/montserrat-latin-ext-900-italic.woff2?url';
 import latin700 from '@fontsource/montserrat/files/montserrat-latin-700-normal.woff2?url';
 import latinExt700 from '@fontsource/montserrat/files/montserrat-latin-ext-700-normal.woff2?url';
+import interLatin900 from '@fontsource/inter/files/inter-latin-900-normal.woff2?url';
+import interLatinExt900 from '@fontsource/inter/files/inter-latin-ext-900-normal.woff2?url';
 
 export const FONT_FAMILY = 'Montserrat';
+/** Inter (slotolog sitesinin yazı tipi) — Premium Rakamlar V2 */
+export const FONT_INTER = 'Inter';
 
 const LATIN =
   'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD';
@@ -26,11 +30,14 @@ export function ensureFonts(): Promise<void> {
       [latin700, '700', 'normal', LATIN],
       [latinExt700, '700', 'normal', LATIN_EXT],
     ];
-    promise = Promise.all(
-      faces.map(([url, weight, style, unicodeRange]) =>
-        loadFont({ family: FONT_FAMILY, url, weight, style, unicodeRange, format: 'woff2' }),
-      ),
-    ).then(() => undefined);
+    const inter: [string, string][] = [
+      [interLatin900, LATIN],
+      [interLatinExt900, LATIN_EXT],
+    ];
+    promise = Promise.all([
+      ...faces.map(([url, weight, style, unicodeRange]) => loadFont({ family: FONT_FAMILY, url, weight, style, unicodeRange, format: 'woff2' })),
+      ...inter.map(([url, unicodeRange]) => loadFont({ family: FONT_INTER, url, weight: '900', style: 'normal', unicodeRange, format: 'woff2' })),
+    ]).then(() => undefined);
   }
   return promise;
 }

@@ -4,11 +4,11 @@ import { useStore } from '../store';
 import { MainComposition } from '../remotion/Main';
 import { deleteProject, listProjects, loadProject, saveProject, assetUrlsFor, downloadBlob, type ProjectSummary } from '../lib/storage';
 import { brandUrl } from '../lib/brand';
-import { EMOJI_PRESETS, emojiProject, GLYPH_CHARS, GLYPH_REEL, glyphTokens, premiumGlyph, premiumGlyphSet } from '../lib/emojiTemplates';
+import { EMOJI_PRESETS, emojiProject, GLYPH_ANIM_LABEL, GLYPH_CHARS, GLYPH_REEL, glyphTokens, premiumGlyph, premiumGlyphSet } from '../lib/emojiTemplates';
 import { fitReel, fitToLoop, reelFor, setEmojiSpeed, splitLayer, emojiProblems } from '../lib/emojiOps';
 import { exportEmojiWebm, gifPreview, pngPreview, zipFiles, emojiFileName, TG, type TgReport } from '../lib/emoji';
 import { DEFAULT_REEL, reelColumns, reelMinFrames } from '../lib/reel';
-import { EMOJI_CATEGORIES, projectSize, type GlyphStyle, type Project, type ReelAssemble } from '../types';
+import { EMOJI_CATEGORIES, projectSize, type GlyphAnim, type GlyphStyle, type Project, type ReelAssemble } from '../types';
 import { Btn } from './ui';
 
 const SYMBOLS = [
@@ -417,6 +417,9 @@ const ExportPanel: React.FC<{ list: ProjectSummary[] }> = ({ list }) => {
       </div>
       <div className="flex gap-1">
         <Btn small onClick={() => setPicked(Object.fromEntries(list.map((x) => [x.id, true])))}>Tümünü seç</Btn>
+        <Btn small data-testid="pick-digits-shine" onClick={() => setPicked(Object.fromEntries(list.filter((x) => x.emoji?.glyphSet?.anim === 'shine').map((x) => [x.id, true])))}>
+          Rakamlar · V2
+        </Btn>
         <Btn small data-testid="pick-digits-reel" onClick={() => setPicked(Object.fromEntries(list.filter((x) => x.emoji?.glyphSet?.anim === 'reel').map((x) => [x.id, true])))}>
           Rakamlar · Reel
         </Btn>
@@ -528,10 +531,11 @@ export async function leaveEmojiStudio() {
 
 /* ---------------- Premium Rakamlar ---------------- */
 
-const ANIM_LABEL: Record<'reel' | 'pulse', string> = { reel: 'Slot Reel', pulse: 'Golden Pulse' };
+const ANIM_LABEL = GLYPH_ANIM_LABEL;
+const animOf = (g: GlyphStyle): GlyphAnim => (g.anim === 'static' ? 'reel' : g.anim);
 
 /** creates (or renews, never duplicates) the 16-glyph set for one animation style */
-export async function makeGlyphSet(anim: 'reel' | 'pulse', style: Partial<GlyphStyle> = {}) {
+export async function makeGlyphSet(anim: GlyphAnim, style: Partial<GlyphStyle> = {}) {
   const existing = await listProjects();
   const made = premiumGlyphSet(anim, style);
   let renewed = 0;
@@ -548,7 +552,7 @@ export async function makeGlyphSet(anim: 'reel' | 'pulse', style: Partial<GlyphS
 }
 
 /** applies the current glyph's colour / brightness / depth to every saved glyph of the same animation style */
-async function applyStyleToSet(style: GlyphStyle, anim: 'reel' | 'pulse', skipId: string) {
+async function applyStyleToSet(style: GlyphStyle, anim: GlyphAnim, skipId: string) {
   const list = await listProjects();
   let n = 0;
   for (const s of list) {
@@ -575,10 +579,21 @@ export const DigitPanel: React.FC = () => {
   return (
     <div data-testid="digit-panel">
       <H4>Premium Rakamlar</H4>
+      <Btn
+        small
+        variant="primary"
+        data-testid="digits-make-shine"
+        className="mb-1 w-full"
+        onClick={async () => {
+          const r = await makeGlyphSet('shine');
+          setMsg(`✓ ${r.count} rakam (Premium Rakamlar V2) hazır${r.renewed ? ` · ${r.renewed} yenilendi` : ''}`);
+        }}
+      >
+        ⭐ Premium Rakamlar V2 · Shine (önerilen)
+      </Btn>
       <div className="grid grid-cols-2 gap-1">
         <Btn
           small
-          variant="primary"
           data-testid="digits-make-reel"
           onClick={async () => {
             const r = await makeGlyphSet('reel');
@@ -609,7 +624,7 @@ export const DigitPanel: React.FC = () => {
               onChange={(e) => {
                 const ch = e.target.value;
                 st.updateLayer(glyphLayer.id, { text: { ...glyphLayer.text!, text: ch }, name: `Premium rakam “${ch}”` });
-                st.update((p) => ({ ...p, name: `Rakam ${ch} · ${ANIM_LABEL[g.anim === 'pulse' ? 'pulse' : 'reel']}`, emoji: { ...(p.emoji ?? { category: 'Premium Rakamlar' }), glyphSet: { char: ch, anim: g.anim === 'pulse' ? 'pulse' : 'reel' } } }));
+                st.update((p) => ({ ...p, name: `Rakam ${ch} · ${ANIM_LABEL[animOf(g)]}`, emoji: { ...(p.emoji ?? { category: animOf(g) === 'shine' ? 'Premium Rakamlar V2' : 'Premium Rakamlar' }), glyphSet: { char: ch, anim: animOf(g) } } }));
               }}
             >
               {GLYPH_CHARS.map((c) => (
@@ -628,7 +643,7 @@ export const DigitPanel: React.FC = () => {
           <Num label="3D derinlik" value={g.depth} min={0} max={30} onChange={(v) => setGlyph({ depth: v })} />
           <div className="flex items-center gap-1 text-[11px]">
             <span className="w-24 shrink-0">Animasyon</span>
-            {(['reel', 'pulse'] as const).map((a) => (
+            {(['shine', 'reel', 'pulse'] as const).map((a) => (
               <button
                 key={a}
                 data-testid={`glyph-anim-${a}`}
@@ -648,11 +663,11 @@ export const DigitPanel: React.FC = () => {
             data-testid="glyph-apply-set"
             onClick={async () => {
               await saveProject(useStore.getState().project);
-              const n = await applyStyleToSet(g, g.anim === 'pulse' ? 'pulse' : 'reel', project.id);
+              const n = await applyStyleToSet(g, animOf(g), project.id);
               setMsg(`✓ Renk, parlaklık ve derinlik ${n} rakama daha uygulandı`);
             }}
           >
-            Bu stili tüm {ANIM_LABEL[g.anim === 'pulse' ? 'pulse' : 'reel']} setine uygula
+            Bu stili tüm {ANIM_LABEL[animOf(g)]} setine uygula
           </Btn>
         </div>
       )}
@@ -666,7 +681,7 @@ export const DigitPanel: React.FC = () => {
 const SequencePreview: React.FC = () => {
   const project = useStore((s) => s.project);
   const [text, setText] = useState('100.000₺');
-  const [anim, setAnim] = useState<'reel' | 'pulse'>('reel');
+  const [anim, setAnim] = useState<GlyphAnim>('shine');
   const [set, setSet] = useState<Record<string, Project>>({});
   const [bg, setBg] = useState<'dark' | 'light'>('dark');
   useEffect(() => {
@@ -719,7 +734,8 @@ const SequencePreview: React.FC = () => {
           className="min-w-0 flex-1 rounded border border-white/10 bg-[#121212] px-2 py-1 text-[12px] text-white"
           placeholder="100.000₺ · %150 · 1000× · +450 FS"
         />
-        <select value={anim} onChange={(e) => setAnim(e.target.value as 'reel' | 'pulse')} className="rounded border border-white/10 bg-[#121212] px-1 text-[11px]" data-testid="sequence-anim">
+        <select value={anim} onChange={(e) => setAnim(e.target.value as GlyphAnim)} className="rounded border border-white/10 bg-[#121212] px-1 text-[11px]" data-testid="sequence-anim">
+          <option value="shine">Premium V2</option>
           <option value="reel">Slot Reel</option>
           <option value="pulse">Golden Pulse</option>
         </select>

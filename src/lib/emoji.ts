@@ -242,5 +242,7 @@ const GLYPH_FILE: Record<string, string> = { '%': 'yuzde', '+': 'arti', '×': 'c
 
 export const emojiFileName = (p: Project, ext = 'webm') =>
   p.emoji?.glyphSet
-    ? `Rakam_${GLYPH_FILE[p.emoji.glyphSet.char] ?? p.emoji.glyphSet.char}_${p.emoji.glyphSet.anim === 'pulse' ? 'GoldenPulse' : 'SlotReel'}_100x100.${ext}`
+    ? p.emoji.glyphSet.anim === 'shine'
+      ? `RakamV2_${GLYPH_FILE[p.emoji.glyphSet.char] ?? p.emoji.glyphSet.char}_PremiumShine_100x100.${ext}`
+      : `Rakam_${GLYPH_FILE[p.emoji.glyphSet.char] ?? p.emoji.glyphSet.char}_${p.emoji.glyphSet.anim === 'pulse' ? 'GoldenPulse' : 'SlotReel'}_100x100.${ext}`
     : `${(p.name.replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '') || 'slotolog-emoji').slice(0, 60)}_100x100.${ext}`;
