@@ -214,6 +214,8 @@ export interface Layer {
   reel?: ReelAssemble;
   /** Premium 3D gold glyph (Telegram Emoji Studio digits); the text stays editable */
   glyph?: GlyphStyle;
+  /** Bonus Seviyeleri emojisi (taç / rozet / chip); varsa katman bu çizimle gösterilir */
+  bonus?: BonusStyle;
   /** zoom inside the layer box (cropped): scale and focus point 0..1 */
   mediaZoom?: { scale: number; x: number; y: number; animate?: boolean };
   colorFilter?: 'none' | 'sepia' | 'bw' | 'warm';
@@ -436,7 +438,7 @@ export interface StoryData {
 export type NarrationStyle = 'excited' | 'story' | 'cinematic';
 
 /** Telegram Emoji Studio */
-export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Premium Rakamlar V2', 'Premium Rakamlar', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
+export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Bonus Seviyeleri', 'Premium Rakamlar V2', 'Premium Rakamlar', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
 export interface EmojiMeta {
   category: string;
   /** design canvas is square (project.size, e.g. 512×512); exported at 100×100 */
@@ -446,6 +448,8 @@ export interface EmojiMeta {
   note?: string;
   /** Premium Rakamlar set member: which character and which animation style */
   glyphSet?: { char: string; anim: GlyphAnim };
+  /** Bonus Seviyeleri üyesi */
+  bonus?: { series: BonusStyle['series']; level: number };
 }
 
 /** Slot Reel Assemble: the image is cut into vertical reels; symbols roll down each reel and it lands on its own slice. */
@@ -476,6 +480,17 @@ export interface ReelAssemble {
 }
 
 /** Premium Rakamlar: 3D gold glyph drawn on canvas (Montserrat Black) */
+/** Bonus Seviyeleri: seri + seviye (0 Bronz … 4 Elmas) + düzenlenebilir vurgu rengi, parlama ve ölçek */
+export interface BonusStyle {
+  series: 'crown' | 'badge' | 'chip';
+  level: number;
+  accent: string;
+  /** parlama / ışıma yoğunluğu (1 = varsayılan) */
+  shine?: number;
+  /** nesne ölçeği (1 = varsayılan) */
+  scale?: number;
+}
+
 /** set animation styles: reel = Slot Reel, pulse = Golden Pulse (V1), shine = Premium Shine (V2) */
 export type GlyphAnim = 'reel' | 'pulse' | 'shine';
 

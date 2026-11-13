@@ -240,8 +240,12 @@ export async function zipFiles(files: { name: string; blob: Blob }[]): Promise<B
 
 const GLYPH_FILE: Record<string, string> = { '%': 'yuzde', '+': 'arti', '×': 'carpi', '₺': 'TL', '.': 'nokta', FS: 'FS' };
 
+const BONUS_FILE = { crown: 'Tac', badge: 'Rozet', chip: 'Chip' } as const;
+const BONUS_LV_FILE = ['1_Bronz', '2_Gumus', '3_Altin', '4_Platin', '5_Elmas'];
 export const emojiFileName = (p: Project, ext = 'webm') =>
-  p.emoji?.glyphSet
+  p.emoji?.bonus
+    ? `Bonus_${BONUS_FILE[p.emoji.bonus.series]}_${BONUS_LV_FILE[p.emoji.bonus.level] ?? p.emoji.bonus.level}_100x100.${ext}`
+    : p.emoji?.glyphSet
     ? p.emoji.glyphSet.anim === 'shine'
       ? `RakamV2_${GLYPH_FILE[p.emoji.glyphSet.char] ?? p.emoji.glyphSet.char}_PremiumShine_100x100.${ext}`
       : `Rakam_${GLYPH_FILE[p.emoji.glyphSet.char] ?? p.emoji.glyphSet.char}_${p.emoji.glyphSet.anim === 'pulse' ? 'GoldenPulse' : 'SlotReel'}_100x100.${ext}`

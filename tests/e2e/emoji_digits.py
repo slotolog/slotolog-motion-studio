@@ -48,7 +48,10 @@ with sync_playwright() as p:
     ok(g['accent'] == '#ffaa00' and abs(g['brightness'] - 1.2) < 1e-6, 'vurgu rengi ve parlaklık ayarlanabiliyor')
     pg.click('[data-testid=glyph-apply-set]')
     pg.wait_for_function("document.querySelector('[data-testid=digit-msg]')?.textContent.includes('15 rakama')", timeout=60000)
-    P = [x for x in projects(pg) if (x.get('emoji') or {}).get('glyphSet', {}).get('anim') == 'reel']
+    for _ in range(20):  # the open emoji is autosaved a moment later
+        P = [x for x in projects(pg) if (x.get('emoji') or {}).get('glyphSet', {}).get('anim') == 'reel']
+        if all(l['glyph']['accent'] == '#ffaa00' for x in P for l in x['layers'] if l.get('glyph')): break
+        time.sleep(0.5)
     ok(all(l['glyph']['accent'] == '#ffaa00' and abs(l['glyph']['brightness'] - 1.2) < 1e-6 for x in P for l in x['layers'] if l.get('glyph')), 'stil tüm Slot Reel setine uygulandı (16/16)')
     pg.locator('[data-testid=glyph-accent]').fill('#ff8e16'); pg.locator('[data-testid=glyph-brightness]').fill('1'); time.sleep(0.3)
     pg.click('[data-testid=glyph-apply-set]')

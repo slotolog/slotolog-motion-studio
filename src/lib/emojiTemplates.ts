@@ -1,8 +1,8 @@
-import { makeEffect, textLayer, uid } from './factory';
+import { baseLayer, makeEffect, textLayer, uid } from './factory';
 import { brandLayer } from './brand';
 import { DEFAULT_REEL, reelMinFrames } from './reel';
 import { fitToLoop } from './emojiOps';
-import type { EmojiMeta, GlyphAnim, GlyphStyle, Keyframe, Layer, Project, ReelAssemble } from '../types';
+import type { BonusStyle, EmojiMeta, GlyphAnim, GlyphStyle, Keyframe, Layer, Project, ReelAssemble } from '../types';
 
 /** Telegram Emoji Studio — design canvas 512×512 (exported 100×100), 30 FPS, 3 s loop */
 export const EMOJI_CANVAS = 512;
@@ -240,3 +240,31 @@ export function applyReel(layer: Layer, frames: number, columns = 4): ReelAssemb
   return reel;
 }
 
+
+/** Bonus Seviyeleri: 3 seri × 5 seviye (Bronz → Elmas). Prosedürel çizim, yerinde parlama/pulse animasyonu. */
+export const BONUS_SERIES_ORDER: BonusStyle['series'][] = ['crown', 'badge', 'chip'];
+export const BONUS_SERIES_NAME: Record<BonusStyle['series'], string> = { crown: 'Premium Taçlar', badge: 'Premium Rozetler', chip: 'Premium Casino Chips' };
+export const BONUS_SERIES_SHORT: Record<BonusStyle['series'], string> = { crown: 'Taç', badge: 'Rozet', chip: 'Chip' };
+export const BONUS_LEVEL_NAME = ['Bronz', 'Gümüş', 'Altın', 'Platin', 'Elmas'];
+const SERIES_LETTER: Record<BonusStyle['series'], string> = { crown: 'A', badge: 'B', chip: 'C' };
+
+export function bonusEmoji(series: BonusStyle['series'], level: number, style: Partial<BonusStyle> = {}): Project {
+  const p = emojiProject(`${SERIES_LETTER[series]} · ${BONUS_SERIES_SHORT[series]} · ${level + 1} ${BONUS_LEVEL_NAME[level]}`, { category: 'Bonus Seviyeleri', bonus: { series, level } });
+  p.layers.push(
+    baseLayer(
+      {
+        type: 'placeholder',
+        name: `${BONUS_SERIES_SHORT[series]} — ${BONUS_LEVEL_NAME[level]}`,
+        x: EMOJI_CANVAS / 2,
+        y: EMOJI_CANVAS / 2,
+        width: EMOJI_CANVAS,
+        height: EMOJI_CANVAS,
+        duration: EMOJI_FRAMES,
+        bonus: { series, level, accent: '#FF8E16', shine: 1, scale: 1, ...style },
+      },
+      p,
+    ),
+  );
+  return p;
+}
+export const bonusSet = () => BONUS_SERIES_ORDER.flatMap((s) => BONUS_LEVEL_NAME.map((_, lv) => bonusEmoji(s, lv)));

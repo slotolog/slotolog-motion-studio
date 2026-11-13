@@ -45,7 +45,10 @@ with sync_playwright() as p:
     logo = next(l for l in P['layers'] if l.get('reel'))
     ok(logo['assetId'] == 'brand-logo-white' and len(logo['reel']['cuts']) == 3, 'Logo Assemble gerçek Slotolog PNG’sini 4 makaraya bölüyor')
     pg.click('[data-testid=emoji-make-pack]'); time.sleep(2.5)
-    names = pg.locator('[data-testid=emoji-item]').evaluate_all("e=>e.map(x=>x.dataset.name)")
+    for _ in range(40):  # the pack is saved one emoji at a time; wait until the library lists all of them
+        names = pg.locator('[data-testid=emoji-item]').evaluate_all("e=>e.map(x=>x.dataset.name)")
+        if len(names) >= 10: break
+        time.sleep(0.5)
     for n in ['Slotolog Logo Assemble', 'Slotolog Logo Spin', 'BONUS', '1000X Bomb', 'JACKPOT', 'FREE SPIN', 'Slotolog Logo Assemble · İşaret', 'Slotolog Logo Assemble · Şerit 1/3']:
         assert n in names, n
     ok(names.count('Slotolog Logo Assemble') == 1, f'İlk paket: {len(names)} emoji projesi, tekrar oluşturmada kopya yok')

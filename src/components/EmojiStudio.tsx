@@ -4,11 +4,11 @@ import { useStore } from '../store';
 import { MainComposition } from '../remotion/Main';
 import { deleteProject, listProjects, loadProject, saveProject, assetUrlsFor, downloadBlob, type ProjectSummary } from '../lib/storage';
 import { brandUrl } from '../lib/brand';
-import { EMOJI_PRESETS, emojiProject, GLYPH_ANIM_LABEL, GLYPH_CHARS, GLYPH_REEL, glyphTokens, premiumGlyph, premiumGlyphSet } from '../lib/emojiTemplates';
+import { BONUS_LEVEL_NAME, BONUS_SERIES_NAME, BONUS_SERIES_ORDER, bonusEmoji, bonusSet, EMOJI_PRESETS, emojiProject, GLYPH_ANIM_LABEL, GLYPH_CHARS, GLYPH_REEL, glyphTokens, premiumGlyph, premiumGlyphSet } from '../lib/emojiTemplates';
 import { fitReel, fitToLoop, reelFor, setEmojiSpeed, splitLayer, emojiProblems } from '../lib/emojiOps';
 import { exportEmojiWebm, gifPreview, pngPreview, zipFiles, emojiFileName, TG, type TgReport } from '../lib/emoji';
 import { DEFAULT_REEL, reelColumns, reelMinFrames } from '../lib/reel';
-import { EMOJI_CATEGORIES, projectSize, type GlyphAnim, type GlyphStyle, type Project, type ReelAssemble } from '../types';
+import { EMOJI_CATEGORIES, projectSize, type BonusStyle, type GlyphAnim, type GlyphStyle, type Project, type ReelAssemble } from '../types';
 import { Btn } from './ui';
 
 const SYMBOLS = [
@@ -248,6 +248,7 @@ export const EmojiLeft: React.FC = () => {
         </div>
       )}
 
+      <BonusPanel />
       <DigitPanel />
 
       <H4>Yeni emoji</H4>
@@ -283,8 +284,14 @@ export const EmojiLeft: React.FC = () => {
               <div className="flex justify-between px-2 py-1 font-semibold text-neutral-200">
                 {g.c} <span className="text-neutral-500">{g.items.length}</span>
               </div>
-              {g.items.map((x) => (
-                <div key={x.id} className={`flex items-center gap-1 px-2 py-0.5 ${x.id === project.id ? 'bg-[#FF8E16]/15' : ''}`} data-testid="emoji-item" data-name={x.name}>
+              {g.items.map((x, xi) => (
+                <React.Fragment key={x.id}>
+                {x.emoji?.bonus && x.emoji.bonus.series !== g.items[xi - 1]?.emoji?.bonus?.series && (
+                  <div className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-[#FF8E16]" data-testid="bonus-series-head">
+                    {BONUS_SERIES_NAME[x.emoji.bonus.series]}
+                  </div>
+                )}
+                <div className={`flex items-center gap-1 px-2 py-0.5 ${x.id === project.id ? 'bg-[#FF8E16]/15' : ''}`} data-testid="emoji-item" data-name={x.name}>
                   <button className="min-w-0 flex-1 truncate text-left hover:text-white" onClick={async () => openEmoji((await loadProject(x.id))!)}>
                     {x.name}
                   </button>
@@ -303,6 +310,7 @@ export const EmojiLeft: React.FC = () => {
                     </button>
                   )}
                 </div>
+                </React.Fragment>
               ))}
             </div>
           ))}
@@ -417,6 +425,9 @@ const ExportPanel: React.FC<{ list: ProjectSummary[] }> = ({ list }) => {
       </div>
       <div className="flex gap-1">
         <Btn small onClick={() => setPicked(Object.fromEntries(list.map((x) => [x.id, true])))}>Tümünü seç</Btn>
+        <Btn small data-testid="pick-bonus" onClick={() => setPicked(Object.fromEntries(list.filter((x) => x.emoji?.bonus).map((x) => [x.id, true])))}>
+          Bonus · 15
+        </Btn>
         <Btn small data-testid="pick-digits-shine" onClick={() => setPicked(Object.fromEntries(list.filter((x) => x.emoji?.glyphSet?.anim === 'shine').map((x) => [x.id, true])))}>
           Rakamlar · V2
         </Btn>
@@ -566,6 +577,95 @@ async function applyStyleToSet(style: GlyphStyle, anim: GlyphAnim, skipId: strin
   return n;
 }
 
+
+/** creates (or renews, never duplicates) the 15 Bonus Seviyeleri emojis */
+export async function makeBonusSet() {
+  const existing = await listProjects();
+  const made = bonusSet();
+  let renewed = 0;
+  for (const p of made) {
+    const old = existing.find((x) => x.emoji?.bonus?.series === p.emoji!.bonus!.series && x.emoji?.bonus?.level === p.emoji!.bonus!.level);
+    if (old) {
+      p.id = old.id;
+      renewed++;
+    }
+  }
+  const elmas = made.find((p) => p.emoji?.bonus?.series === 'crown' && p.emoji.bonus.level === 4)!;
+  for (const p of made) if (p !== elmas) await saveProject(p);
+  await openEmoji(elmas);
+  return { count: made.length, renewed };
+}
+
+export const BonusPanel: React.FC = () => {
+  const project = useStore((s) => s.project);
+  const st = useStore.getState();
+  const [msg, setMsg] = useState('');
+  const b = project.layers.find((l) => l.bonus)?.bonus;
+  const set = (patch: Partial<BonusStyle>) => {
+    // always read the latest layer from the store (two quick edits must not overwrite each other)
+    const cur = useStore.getState().project.layers.find((l) => l.bonus);
+    if (!cur?.bonus) return;
+    const nb = { ...cur.bonus, ...patch };
+    st.updateLayer(cur.id, { bonus: nb, name: `${BONUS_SERIES_NAME[nb.series].replace('Premium ', '')} — ${BONUS_LEVEL_NAME[nb.level]}` });
+    if (patch.series !== undefined || patch.level !== undefined) {
+      const fresh = bonusEmoji(nb.series, nb.level);
+      st.update((p) => ({ ...p, name: fresh.name, emoji: { ...(p.emoji ?? { category: 'Bonus Seviyeleri' }), category: 'Bonus Seviyeleri', bonus: { series: nb.series, level: nb.level } } }));
+    }
+  };
+  return (
+    <div data-testid="bonus-panel">
+      <H4>Bonus Seviyeleri</H4>
+      <Btn
+        small
+        variant="primary"
+        data-testid="bonus-make-all"
+        className="mb-1 w-full"
+        onClick={async () => {
+          const r = await makeBonusSet();
+          setMsg(`✓ ${r.count} bonus emojisi hazır (3 seri × 5 seviye)${r.renewed ? ` · ${r.renewed} yenilendi` : ''}`);
+        }}
+      >
+        👑 Taç · Rozet · Chip — 15 emoji oluştur
+      </Btn>
+      {msg && <div className="mb-1 text-[10px] text-emerald-300" data-testid="bonus-msg">{msg}</div>}
+      {b && (
+        <div className="space-y-1.5 rounded border border-white/10 bg-[#141414] p-2" data-testid="bonus-style">
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="w-24 shrink-0">Seri</span>
+            <select data-testid="bonus-series" className="flex-1 rounded bg-[#1E1E1E] px-1 py-0.5" value={b.series} onChange={(e) => set({ series: e.target.value as BonusStyle['series'] })}>
+              {BONUS_SERIES_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {BONUS_SERIES_NAME[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 text-[11px]">
+            <span className="w-24 shrink-0">Seviye</span>
+            <select data-testid="bonus-level" className="flex-1 rounded bg-[#1E1E1E] px-1 py-0.5" value={b.level} onChange={(e) => set({ level: Number(e.target.value) })}>
+              {BONUS_LEVEL_NAME.map((n, i) => (
+                <option key={n} value={i}>
+                  {i + 1}. {n}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-[11px]">
+            <span className="w-24 shrink-0">Vurgu rengi</span>
+            <input type="color" data-testid="bonus-accent" value={b.accent} onChange={(e) => set({ accent: e.target.value })} />
+            <button className="text-[10px] text-neutral-400 underline" onClick={() => set({ accent: '#FF8E16' })}>
+              #FF8E16
+            </button>
+          </label>
+          <Num label="Parlama" value={b.shine ?? 1} min={0} max={1.6} step={0.05} testid="bonus-shine" onChange={(v) => set({ shine: v })} />
+          <Num label="Ölçek" value={b.scale ?? 1} min={0.6} max={1.1} step={0.01} testid="bonus-scale" onChange={(v) => set({ scale: v })} />
+          <div className="text-[10px] text-neutral-500">Animasyon hızı için yukarıdaki “Hız” ayarını kullan. Animasyon yerinde: hafif nabız, ışık geçişi, parıltı{b.series === 'chip' ? ', ±22° eğim' : ''}.</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const DigitPanel: React.FC = () => {
   const project = useStore((s) => s.project);
   const st = useStore.getState();
@@ -573,8 +673,10 @@ export const DigitPanel: React.FC = () => {
   const glyphLayer = project.layers.find((l) => l.glyph && l.text);
   const g = glyphLayer?.glyph;
   const setGlyph = (patch: Partial<GlyphStyle>) => {
-    if (!glyphLayer || !g) return;
-    st.updateLayer(glyphLayer.id, { glyph: { ...g, ...patch }, reel: glyphLayer.reel && patch.accent ? { ...glyphLayer.reel, glowColor: patch.accent } : glyphLayer.reel });
+    // read the latest layer from the store (two quick edits must not overwrite each other)
+    const cur = useStore.getState().project.layers.find((l) => l.glyph && l.text);
+    if (!cur?.glyph) return;
+    st.updateLayer(cur.id, { glyph: { ...cur.glyph, ...patch }, reel: cur.reel && patch.accent ? { ...cur.reel, glowColor: patch.accent } : cur.reel });
   };
   return (
     <div data-testid="digit-panel">

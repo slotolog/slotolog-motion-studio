@@ -28,6 +28,7 @@ python3 tests/e2e/format_builder.py $OUT
 python3 tests/e2e/emoji_studio.py $OUT
 python3 tests/e2e/emoji_digits.py $OUT
 python3 tests/e2e/emoji_digits_v2.py $OUT
+python3 tests/e2e/bonus_levels.py $OUT
 python3 tests/e2e/flow.py $OUT
 ffprobe -v error -show_entries stream=codec_type,codec_name,width,height:format=duration -of compact $OUT/flow.mp4
 echo "TÜM TESTLER TAMAM"
