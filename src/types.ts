@@ -216,6 +216,8 @@ export interface Layer {
   glyph?: GlyphStyle;
   /** Bonus Seviyeleri emojisi (taç / rozet / chip); varsa katman bu çizimle gösterilir */
   bonus?: BonusStyle;
+  /** Slotolog Bonus Emojileri (3D kampanya emojisi veya yazılı başlık şeridi parçası) */
+  campaign?: CampaignStyle;
   /** zoom inside the layer box (cropped): scale and focus point 0..1 */
   mediaZoom?: { scale: number; x: number; y: number; animate?: boolean };
   colorFilter?: 'none' | 'sepia' | 'bw' | 'warm';
@@ -438,7 +440,7 @@ export interface StoryData {
 export type NarrationStyle = 'excited' | 'story' | 'cinematic';
 
 /** Telegram Emoji Studio */
-export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Bonus Seviyeleri', 'Premium Rakamlar V2', 'Premium Rakamlar', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
+export const EMOJI_CATEGORIES = ['Logo', 'Bonus', 'Çarpan', 'Slotolog Bonus Emojileri', 'Bonus Seviyeleri', 'Premium Rakamlar V2', 'Premium Rakamlar', 'Slot sembolleri', 'Sağlayıcı logoları', 'Spor', 'Duyurular'] as const;
 export interface EmojiMeta {
   category: string;
   /** design canvas is square (project.size, e.g. 512×512); exported at 100×100 */
@@ -450,6 +452,8 @@ export interface EmojiMeta {
   glyphSet?: { char: string; anim: GlyphAnim };
   /** Bonus Seviyeleri üyesi */
   bonus?: { series: BonusStyle['series']; level: number };
+  /** Slotolog Bonus Emojileri üyesi: kampanya kimliği, tekli ya da şerit parçası */
+  campaign?: { id: CampaignKind; part: 'single' | 'strip'; tile?: number; tiles?: number };
 }
 
 /** Slot Reel Assemble: the image is cut into vertical reels; symbols roll down each reel and it lands on its own slice. */
@@ -489,6 +493,22 @@ export interface BonusStyle {
   shine?: number;
   /** nesne ölçeği (1 = varsayılan) */
   scale?: number;
+}
+
+export type CampaignKind = 'welcome' | 'night' | 'weekend' | 'refund' | 'spin' | 'multi' | 'birthday' | 'friend' | 'daily';
+/** Slotolog Bonus Emojileri: tekli 3D emoji (kind) veya yazılı başlık şeridi (kind 'strip' + text + tiles, bu proje 'tile'. parça) */
+export interface CampaignStyle {
+  kind: CampaignKind | 'strip';
+  /** şerit yazısı */
+  text?: string;
+  /** şeridin toplam parça sayısı */
+  tiles?: number;
+  /** bu projenin gösterdiği parça (0'dan) */
+  tile?: number;
+  /** parlaklık (pozlama, 1 = varsayılan) */
+  brightness?: number;
+  /** parıltı ve ışıma yoğunluğu (1 = varsayılan) */
+  shine?: number;
 }
 
 /** set animation styles: reel = Slot Reel, pulse = Golden Pulse (V1), shine = Premium Shine (V2) */

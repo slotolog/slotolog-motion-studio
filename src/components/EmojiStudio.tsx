@@ -4,11 +4,11 @@ import { useStore } from '../store';
 import { MainComposition } from '../remotion/Main';
 import { deleteProject, listProjects, loadProject, saveProject, assetUrlsFor, downloadBlob, type ProjectSummary } from '../lib/storage';
 import { brandUrl } from '../lib/brand';
-import { BONUS_LEVEL_NAME, BONUS_SERIES_NAME, BONUS_SERIES_ORDER, bonusEmoji, bonusSet, EMOJI_PRESETS, emojiProject, GLYPH_ANIM_LABEL, GLYPH_CHARS, GLYPH_REEL, glyphTokens, premiumGlyph, premiumGlyphSet } from '../lib/emojiTemplates';
+import { CAMPAIGNS, campaignOf, campaignSet, BONUS_LEVEL_NAME, BONUS_SERIES_NAME, BONUS_SERIES_ORDER, bonusEmoji, bonusSet, EMOJI_PRESETS, emojiProject, GLYPH_ANIM_LABEL, GLYPH_CHARS, GLYPH_REEL, glyphTokens, premiumGlyph, premiumGlyphSet } from '../lib/emojiTemplates';
 import { fitReel, fitToLoop, reelFor, setEmojiSpeed, splitLayer, emojiProblems } from '../lib/emojiOps';
 import { exportEmojiWebm, gifPreview, pngPreview, zipFiles, emojiFileName, TG, type TgReport } from '../lib/emoji';
 import { DEFAULT_REEL, reelColumns, reelMinFrames } from '../lib/reel';
-import { EMOJI_CATEGORIES, projectSize, type BonusStyle, type GlyphAnim, type GlyphStyle, type Project, type ReelAssemble } from '../types';
+import { EMOJI_CATEGORIES, projectSize, type BonusStyle, type CampaignStyle, type GlyphAnim, type GlyphStyle, type Project, type ReelAssemble } from '../types';
 import { Btn } from './ui';
 
 const SYMBOLS = [
@@ -248,6 +248,7 @@ export const EmojiLeft: React.FC = () => {
         </div>
       )}
 
+      <CampaignPanel />
       <BonusPanel />
       <DigitPanel />
 
@@ -425,6 +426,9 @@ const ExportPanel: React.FC<{ list: ProjectSummary[] }> = ({ list }) => {
       </div>
       <div className="flex gap-1">
         <Btn small onClick={() => setPicked(Object.fromEntries(list.map((x) => [x.id, true])))}>Tümünü seç</Btn>
+        <Btn small data-testid="pick-campaign" onClick={() => setPicked(Object.fromEntries(list.filter((x) => x.emoji?.campaign).map((x) => [x.id, true])))}>
+          Kampanyalar
+        </Btn>
         <Btn small data-testid="pick-bonus" onClick={() => setPicked(Object.fromEntries(list.filter((x) => x.emoji?.bonus).map((x) => [x.id, true])))}>
           Bonus · 15
         </Btn>
@@ -577,6 +581,73 @@ async function applyStyleToSet(style: GlyphStyle, anim: GlyphAnim, skipId: strin
   return n;
 }
 
+
+/** creates (or renews, never duplicates) the Slotolog Bonus Emojileri: 9 single 3D emojis + the written-title strips */
+export async function makeCampaignSet() {
+  const existing = await listProjects();
+  const made = campaignSet();
+  let renewed = 0;
+  for (const p of made) {
+    const m = p.emoji!.campaign!;
+    const old = existing.find((x) => x.emoji?.campaign?.id === m.id && x.emoji.campaign.part === m.part && (x.emoji.campaign.tile ?? -1) === (m.tile ?? -1));
+    if (old) {
+      p.id = old.id;
+      renewed++;
+    }
+  }
+  const first = made[0];
+  for (const p of made) if (p !== first) await saveProject(p);
+  await openEmoji(first);
+  return { count: made.length, singles: made.filter((p) => p.emoji?.campaign?.part === 'single').length, renewed };
+}
+
+export const CampaignPanel: React.FC = () => {
+  const project = useStore((s) => s.project);
+  const st = useStore.getState();
+  const [msg, setMsg] = useState('');
+  const c = project.layers.find((l) => l.campaign)?.campaign;
+  const set = (patch: Partial<CampaignStyle>) => {
+    const cur = useStore.getState().project.layers.find((l) => l.campaign);
+    if (!cur?.campaign) return;
+    st.updateLayer(cur.id, { campaign: { ...cur.campaign, ...patch } });
+  };
+  const meta = project.emoji?.campaign;
+  return (
+    <div data-testid="campaign-panel">
+      <H4>Slotolog Bonus Emojileri</H4>
+      <Btn
+        small
+        variant="primary"
+        data-testid="campaign-make-all"
+        className="mb-1 w-full"
+        onClick={async () => {
+          const r = await makeCampaignSet();
+          setMsg(`✓ ${r.singles} kampanya emojisi + ${r.count - r.singles} şerit parçası hazır${r.renewed ? ` · ${r.renewed} yenilendi` : ''}`);
+        }}
+      >
+        🎁 9 kampanya · 3D emoji + yazılı şeritler
+      </Btn>
+      {msg && <div className="mb-1 text-[10px] text-emerald-300" data-testid="campaign-msg">{msg}</div>}
+      {c && meta && (
+        <div className="space-y-1.5 rounded border border-white/10 bg-[#141414] p-2" data-testid="campaign-style">
+          <div className="text-[11px] text-neutral-300">
+            {campaignOf(meta.id).name} · {meta.part === 'single' ? '3D emoji' : `“${c.text}” şeridi · parça ${(c.tile ?? 0) + 1}/${c.tiles}`}
+          </div>
+          {meta.part === 'strip' && (
+            <label className="flex items-center gap-2 text-[11px]">
+              <span className="w-24 shrink-0">Şerit yazısı</span>
+              <input data-testid="campaign-text" className="flex-1 rounded bg-[#1E1E1E] px-1 py-0.5" value={c.text ?? ''} onChange={(e) => set({ text: e.target.value.toLocaleUpperCase('tr-TR') })} />
+            </label>
+          )}
+          <Num label="Parlaklık" value={c.brightness ?? 1} min={0.6} max={1.5} step={0.05} testid="campaign-brightness" onChange={(v) => set({ brightness: v })} />
+          <Num label="Parıltı / ışıma" value={c.shine ?? 1} min={0} max={1.6} step={0.05} testid="campaign-shine" onChange={(v) => set({ shine: v })} />
+          <div className="text-[10px] text-neutral-500">Animasyon hızı için yukarıdaki “Hız” ayarını kullan. Her kampanyanın kendine özgü 3 sn’lik döngüsü var (makara / aşağı kayma yok).</div>
+        </div>
+      )}
+      <div className="mt-1 text-[10px] text-neutral-500">{CAMPAIGNS.length} kampanya: {CAMPAIGNS.map((x) => x.name).join(' · ')}</div>
+    </div>
+  );
+};
 
 /** creates (or renews, never duplicates) the 15 Bonus Seviyeleri emojis */
 export async function makeBonusSet() {

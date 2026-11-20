@@ -1,3 +1,4 @@
+import { renderCampaign, ensureCampaignFont } from './remotion/campaign3d';
 import { drawBonusFrame } from './remotion/Bonus';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
@@ -16,7 +17,7 @@ import * as reel from './lib/reel';
 (window as unknown as { __slotologRamp: typeof ramp }).__slotologRamp = ramp;
 (window as unknown as { __slotologFormat: typeof format }).__slotologFormat = format;
 (window as unknown as { __slotologSeek: typeof seek }).__slotologSeek = seek;
-(window as unknown as { __slotologEmoji: unknown }).__slotologEmoji = { ...emoji, ...emojiTemplates, reel, drawBonusFrame };
+(window as unknown as { __slotologEmoji: unknown }).__slotologEmoji = { ...emoji, ...emojiTemplates, reel, drawBonusFrame, renderCampaign, ensureCampaignFont };
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

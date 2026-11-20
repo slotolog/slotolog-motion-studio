@@ -2,7 +2,7 @@ import { baseLayer, makeEffect, textLayer, uid } from './factory';
 import { brandLayer } from './brand';
 import { DEFAULT_REEL, reelMinFrames } from './reel';
 import { fitToLoop } from './emojiOps';
-import type { BonusStyle, EmojiMeta, GlyphAnim, GlyphStyle, Keyframe, Layer, Project, ReelAssemble } from '../types';
+import type { BonusStyle, CampaignKind, CampaignStyle, EmojiMeta, GlyphAnim, GlyphStyle, Keyframe, Layer, Project, ReelAssemble } from '../types';
 
 /** Telegram Emoji Studio — design canvas 512×512 (exported 100×100), 30 FPS, 3 s loop */
 export const EMOJI_CANVAS = 512;
@@ -268,3 +268,34 @@ export function bonusEmoji(series: BonusStyle['series'], level: number, style: P
   return p;
 }
 export const bonusSet = () => BONUS_SERIES_ORDER.flatMap((s) => BONUS_LEVEL_NAME.map((_, lv) => bonusEmoji(s, lv)));
+
+/** Slotolog Bonus Emojileri: 9 kampanya × (tekli 3D emoji + yazılı başlık şeridi). Şeritte tutar yok, yalnız kısa ad. */
+export const CAMPAIGNS: { id: CampaignKind; name: string; title: string; tiles: number; file: string }[] = [
+  { id: 'welcome', name: 'Hoş Geldin Bonusu', title: 'HOŞ GELDİN', tiles: 3, file: '01_HosGeldin' },
+  { id: 'weekend', name: 'Hafta Sonu Bonusu', title: 'HAFTA SONU', tiles: 3, file: '02_HaftaSonu' },
+  { id: 'night', name: '%50 Gece Bonusu', title: '%50 GECE', tiles: 2, file: '03_Gece50' },
+  { id: 'refund', name: 'Telafi Bonusu', title: 'TELAFİ', tiles: 2, file: '04_Telafi' },
+  { id: 'spin', name: 'Yatırıma Ek Spin', title: 'EK SPİN', tiles: 2, file: '05_EkSpin' },
+  { id: 'multi', name: '3X Yap 6X Çek', title: '3X YAP 6X ÇEK', tiles: 4, file: '06_3XYap6XCek' },
+  { id: 'birthday', name: 'Doğum Günü Bonusu', title: 'DOĞUM GÜNÜ', tiles: 3, file: '07_DogumGunu' },
+  { id: 'friend', name: 'Arkadaşını Getir', title: 'ARKADAŞINI GETİR', tiles: 4, file: '08_ArkadasiniGetir' },
+  { id: 'daily', name: 'Günlük Bonus', title: 'GÜNLÜK BONUS', tiles: 4, file: '09_GunlukBonus' },
+];
+export const campaignOf = (id: CampaignKind) => CAMPAIGNS.find((c) => c.id === id)!;
+
+function campaignProject(name: string, meta: EmojiMeta, style: CampaignStyle): Project {
+  const p = emojiProject(name, meta);
+  p.layers.push(baseLayer({ type: 'placeholder', name, x: EMOJI_CANVAS / 2, y: EMOJI_CANVAS / 2, width: EMOJI_CANVAS, height: EMOJI_CANVAS, duration: EMOJI_FRAMES, campaign: { brightness: 1, shine: 1, ...style } }, p));
+  return p;
+}
+export function campaignSingle(id: CampaignKind, style: Partial<CampaignStyle> = {}): Project {
+  const c = campaignOf(id);
+  return campaignProject(`${c.file.slice(0, 2)} · ${c.name}`, { category: 'Slotolog Bonus Emojileri', campaign: { id, part: 'single' } }, { kind: id, ...style });
+}
+export function campaignStrip(id: CampaignKind, style: Partial<CampaignStyle> = {}): Project[] {
+  const c = campaignOf(id);
+  return Array.from({ length: c.tiles }, (_, t) =>
+    campaignProject(`${c.file.slice(0, 2)} · ${c.name} · şerit ${t + 1}/${c.tiles}`, { category: 'Slotolog Bonus Emojileri', campaign: { id, part: 'strip', tile: t, tiles: c.tiles }, strip: { group: `kampanya-${id}`, index: t, count: c.tiles } }, { kind: 'strip', text: c.title, tiles: c.tiles, tile: t, ...style }),
+  );
+}
+export const campaignSet = () => CAMPAIGNS.flatMap((c) => [campaignSingle(c.id), ...campaignStrip(c.id)]);

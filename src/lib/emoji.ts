@@ -242,8 +242,13 @@ const GLYPH_FILE: Record<string, string> = { '%': 'yuzde', '+': 'arti', '×': 'c
 
 const BONUS_FILE = { crown: 'Tac', badge: 'Rozet', chip: 'Chip' } as const;
 const BONUS_LV_FILE = ['1_Bronz', '2_Gumus', '3_Altin', '4_Platin', '5_Elmas'];
+const CAMPAIGN_FILE: Record<string, string> = { welcome: '01_HosGeldin', weekend: '02_HaftaSonu', night: '03_Gece50', refund: '04_Telafi', spin: '05_EkSpin', multi: '06_3XYap6XCek', birthday: '07_DogumGunu', friend: '08_ArkadasiniGetir', daily: '09_GunlukBonus' };
 export const emojiFileName = (p: Project, ext = 'webm') =>
-  p.emoji?.bonus
+  p.emoji?.campaign
+    ? p.emoji.campaign.part === 'strip'
+      ? `Kampanya_${CAMPAIGN_FILE[p.emoji.campaign.id]}_Serit_${(p.emoji.campaign.tile ?? 0) + 1}of${p.emoji.campaign.tiles}_100x100.${ext}`
+      : `Kampanya_${CAMPAIGN_FILE[p.emoji.campaign.id]}_100x100.${ext}`
+    : p.emoji?.bonus
     ? `Bonus_${BONUS_FILE[p.emoji.bonus.series]}_${BONUS_LV_FILE[p.emoji.bonus.level] ?? p.emoji.bonus.level}_100x100.${ext}`
     : p.emoji?.glyphSet
     ? p.emoji.glyphSet.anim === 'shine'

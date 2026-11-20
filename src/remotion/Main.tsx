@@ -10,6 +10,7 @@ import { BackgroundCanvas, ButtonView, FrameCanvas, MultiplierSvg, ParticlesCanv
 import { brandUrl } from '../lib/brand';
 import { GlyphView } from './Glyph';
 import { BonusView } from './Bonus';
+import { CampaignView } from './Campaign';
 import { fillTemplate, defaultSubtitleStyle } from '../lib/story';
 import { expandRamp } from '../lib/speedramp';
 import type { StoryData } from '../types';
@@ -27,6 +28,7 @@ import { drawCoin } from './draw';
 type Mix = Pick<ProjectAudio, 'musicVolume' | 'sfxVolume' | 'musicMuted' | 'sfxMuted' | 'voiceVolume' | 'voiceMuted' | 'duckMusic' | 'duckGame'>;
 
 const LayerContent: React.FC<{ layer: Layer; url?: string; shine?: EffectOutput['shine']; fps: number; duck?: (layerFrame: number) => number; reelSyms?: string[]; frame?: number }> = ({ layer, url, shine, fps, duck, reelSyms, frame }) => {
+  if (layer.campaign) return <CampaignView style={layer.campaign} width={layer.width} height={layer.height} frame={frame ?? 0} duration={layer.duration} />;
   if (layer.bonus) return <BonusView style={layer.bonus} width={layer.width} height={layer.height} frame={frame ?? 0} duration={layer.duration} />;
   switch (layer.type) {
     case 'image':
